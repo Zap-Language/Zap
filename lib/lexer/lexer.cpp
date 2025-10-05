@@ -29,7 +29,7 @@ Token::Token Lexer::NextToken() {
             if(isalpha(*this->_curChar)) {
                 token = Token::Token(Token::Ident, this->ReadIdent());
                 return token;
-            } else if (isdigit(*this->_curChar)) {
+            } else if (isdigit(*_curChar)) {
                 token = Token::Token(Token::Integer, this->ReadNumber());
                 return token;
             }
@@ -43,17 +43,16 @@ Token::Token Lexer::NextToken() {
 }
 
 void Lexer::SkipWhitespaces() {
-    while(*this->_curChar != 0) {
+    do {
         switch (*this->_curChar) {
             case ' ':
             case '\r':
             case '\t':
-                this->ReadChar();
                 break;
             default:
                 return;
         }
-    }
+    } while(this->ReadChar());
 }
 
 std::string Lexer::ReadIdent() {
@@ -70,4 +69,20 @@ std::string Lexer::ReadNumber() {
     while (isdigit(*this->_curChar)) this->ReadChar();
 
     return {curIter, this->_curChar};
+}
+
+Lexer::Lexer(std::string &input)  {
+    _input = std::string(input.begin(), input.end());
+    _curChar = _input.begin();
+    _peakChar = _curChar+1;
+}
+
+bool Lexer::ReadChar() {
+    if (*_curChar == 0) {
+        return false;
+    }
+
+    _curChar = _peakChar;
+    _peakChar++;
+    return true;
 }

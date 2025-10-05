@@ -3,7 +3,7 @@
 #include <lexer/lexer.h>
 
 int main(int argc, char** argv) {
-//    std::ifstream ifs("test.z");
+//    std::ifstream ifs("test.z")
     std::string input;
     std::getline(std::cin, input);
     Lexer lexer(input);
@@ -11,6 +11,6 @@ int main(int argc, char** argv) {
     Token::Token curToken;
     do {
         curToken = lexer.NextToken();
-        std::cout << curToken.tokenType << ' ';
+        std::cout << curToken.tokenLiteral << ' ';
     } while(curToken.tokenType != Token::Eof);
 }
