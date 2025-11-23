@@ -4,14 +4,66 @@
 #include <string>
 
 namespace Token {
-    enum TokenType {
-        Ident,
-        Eof,
-        Assign,
-        Greater,
-        Less,
+enum TokenType {
         Illegal,
+        Eof,
+
+        Ident,
         Integer,
+        Float,
+        Char,
+        String,
+
+        Assign,
+        Plus,
+        Minus,
+        Asterisk,
+        Slash,
+        Power,
+        Modulo,
+
+        Bang,
+        And,
+        Or,
+
+        Equal,
+        NotEqual,
+        Less,
+        Greater,
+
+        Comma,
+        Semicolon,
+        Colon,
+        Dot,
+        NewLine,
+
+        LParen,
+        RParen,
+        LBrace,
+        RBrace,
+        LBracket,
+        RBracket,
+
+        Func,
+        Let,
+        Return,
+        If,
+        Else,
+        ElseIf,
+        For,
+        While,
+        True,
+        False,
+
+        IntType,
+        FloatType,
+        CharType,
+        StringType,
+        BoolType,
+
+        Len,
+        Read,
+        Print,
     };
 
     struct Token {
@@ -20,4 +72,4 @@ namespace Token {
     };
 }
 
-#endif //ZAP_TOKEN_H
+#endif

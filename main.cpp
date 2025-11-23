@@ -3,14 +3,20 @@
 #include <lexer/lexer.h>
 
 int main(int argc, char** argv) {
-//    std::ifstream ifs("test.z")
-    std::string input;
-    std::getline(std::cin, input);
-    Lexer lexer(input);
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <file>" << std::endl;
+        return 1;
+    }
 
-    Token::Token curToken;
-    do {
-        curToken = lexer.NextToken();
-        std::cout << curToken.tokenLiteral << ' ';
-    } while(curToken.tokenType != Token::Eof);
+    std::ifstream ifs(argv[1]);
+    std::string input;
+    while (std::getline(ifs, input)) {
+        Lexer lexer(input);
+
+        Token::Token curToken;
+        do {
+            curToken = lexer.NextToken();
+            std::cout << curToken.tokenLiteral << ' ';
+        } while(curToken.tokenType != Token::Eof);
+    }
 }
