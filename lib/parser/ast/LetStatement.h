@@ -8,6 +8,8 @@
 
 namespace ast {
     struct LetStatement final : public ast::StatementNode {
+        ~LetStatement() override = default;
+
         std::string String() override;
 
         std::string TokenLiteral() override;

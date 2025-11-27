@@ -1,11 +1,12 @@
 add_library(parser STATIC
         parser.cpp
-        ast/program.h
+        ast/Program.h
         ast/LetStatement.h
         ast/Identifier.h
         ast/DataType.h
         ast/FuncStatement.h
         ast/DataTypeInt.h
+        ast/IntLiteral.h
 )
 
 target_link_libraries(parser

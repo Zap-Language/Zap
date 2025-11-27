@@ -9,6 +9,8 @@
 
 namespace ast {
     struct FuncStatement final : public ast::StatementNode {
+        ~FuncStatement() override = default;
+
         std::string String() override;
 
         std::string TokenLiteral() override;

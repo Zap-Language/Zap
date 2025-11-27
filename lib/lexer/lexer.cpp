@@ -128,7 +128,7 @@ Token::Token Lexer::NextToken() {
             }
             if (isdigit(*_curChar)) {
                 const std::string number = this->ReadNumber();
-                if (number.contains('.')) {
+                if (number.find('.') != std::string::npos) {
                     token = Token::Token(Token::Float, number);
                 } else {
                     token = Token::Token(Token::Integer, number);

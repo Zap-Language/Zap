@@ -7,7 +7,7 @@ namespace ast {
     struct DataTypeInt : public DataType {
         TypeDataType Type() override;
 
-        static std::string String();
+        std::string String() override;
 
         TypeDataType type;
     };

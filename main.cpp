@@ -2,6 +2,8 @@
 #include <iostream>
 #include <lexer/lexer.h>
 
+#include "parser/Parser.h"
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <file>" << std::endl;
@@ -12,11 +14,9 @@ int main(int argc, char** argv) {
     std::string input;
     while (std::getline(ifs, input)) {
         Lexer lexer(input);
+        ast::Parser parser(lexer);
+        auto program = parser.ParseProgram();
 
-        Token::Token curToken;
-        do {
-            curToken = lexer.NextToken();
-            std::cout << curToken.tokenLiteral << ' ';
-        } while(curToken.tokenType != Token::Eof);
+        std::cout << program->String() << std::endl;
     }
 }

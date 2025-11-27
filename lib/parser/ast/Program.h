@@ -8,6 +8,8 @@
 
 namespace ast {
     struct Program final : public StatementNode {
+        ~Program() override = default;
+
         std::string String() override;
 
         std::string TokenLiteral() override;

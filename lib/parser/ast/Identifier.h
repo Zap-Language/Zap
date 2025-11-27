@@ -7,7 +7,9 @@
 #include "lexer/Token.h"
 
 namespace ast {
-    struct Identifier : public ExpressionNode {
+    struct Identifier final : public ExpressionNode {
+        ~Identifier() override = default;
+
         std::string String() override;
 
         std::string TokenLiteral() override;

@@ -4,7 +4,7 @@
 
 namespace ast {
     struct Node {
-        virtual ~Node() = 0;
+        virtual ~Node();
 
         virtual std::string String() = 0;
 
@@ -12,9 +12,17 @@ namespace ast {
     };
 
     struct StatementNode : public Node {
+        ~StatementNode() override;
     };
 
+    inline Node::~Node() = default;
+
+    inline StatementNode::~StatementNode() = default;
+
     struct ExpressionNode : public Node {
+        ~ExpressionNode() override;
     };
+
+    inline ExpressionNode::~ExpressionNode() = default;
 }
 #endif //ZAP_AST_H
