@@ -10,6 +10,7 @@ namespace ast {
         String,
         Bool,
         Array,
+        Func,
     };
 
     struct DataType {

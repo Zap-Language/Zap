@@ -7,6 +7,7 @@ add_library(parser STATIC
         ast/FuncStatement.h
         ast/DataTypeInt.h
         ast/IntLiteral.h
+        ast/DataTypeFunc.h
 )
 
 target_link_libraries(parser
