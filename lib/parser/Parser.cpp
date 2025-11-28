@@ -2,7 +2,9 @@
 
 #include <utility>
 
+#include "ast/DataTypeFunc.h"
 #include "ast/DataTypeInt.h"
+#include "ast/DataTypeVoid.h"
 #include "ast/InfixExpression.h"
 #include "ast/IntLiteral.h"
 #include "ast/PrefixExpression.h"
@@ -66,6 +68,8 @@ namespace ast {
                 return ParseFuncStatement();
             case Token::Let:
                 return ParseLetStatement();
+            case Token::NewLine:
+                return nullptr;
             default:
                 _errors.emplace_back("unknown token type");
                 return nullptr;
@@ -125,7 +129,79 @@ namespace ast {
     }
 
     std::shared_ptr<FuncStatement> Parser::ParseFuncStatement() {
-        return nullptr;
+        auto funcDataType = std::make_shared<DataTypeFunc>();
+        auto funcStatement = std::make_shared<FuncStatement>();
+        funcStatement->token = _currentToken;
+        if (PeekTokenIs(Token::Ident)) {
+            NextToken();
+            funcStatement->name = ParseIdentifier(funcDataType);
+        }
+
+        if (!ExpectPeek(Token::LParen)) {
+            return nullptr;
+        }
+
+        NextToken();
+        while (!CurrentTokenIs(Token::RParen)) {
+            auto dataType = ParseDataType();
+            if (dataType == nullptr) {
+                return nullptr;
+            }
+
+            if (!ExpectPeek(Token::Ident)) {
+                return nullptr;
+            }
+
+            auto param = ParseIdentifier(dataType);
+            NextToken();
+            if (CurrentTokenIs(Token::Comma)) {
+                NextToken();
+            }
+
+            funcStatement->parameters.emplace_back(param);
+            funcDataType->params.emplace_back(dataType);
+        }
+
+        NextToken();
+        std::shared_ptr<DataType> returnType;
+        if (!CurrentTokenIs(Token::LBrace)) {
+            returnType = ParseDataType();
+            if (returnType == nullptr) {
+                return nullptr;
+            }
+
+            NextToken();
+        } else {
+            returnType = VOID;
+        }
+
+        funcStatement->returnType = returnType;
+        funcDataType->returnType = returnType;
+
+        if (!CurrentTokenIs(Token::LBrace)) {
+            _errors.emplace_back("function expected '{' literal, got: " + _currentToken.tokenLiteral);
+            return nullptr;
+        }
+
+        NextToken();
+        while (!CurrentTokenIs(Token::RBrace)) {
+            auto statement = ParseStatement();
+            if (statement != nullptr) {
+                funcStatement->body.emplace_back(statement);
+            }
+
+            NextToken();
+        }
+
+        return funcStatement;
+    }
+
+    std::shared_ptr<Identifier> Parser::ParseIdentifier(std::shared_ptr<DataType> dataType) {
+        auto identifier = std::make_shared<Identifier>();
+        identifier->token = _currentToken;
+        identifier->type = std::move(dataType);
+
+        return identifier;
     }
 
     std::shared_ptr<ExpressionNode> Parser::ParseExpression(const Precedence precedence) {

@@ -30,6 +30,7 @@ namespace ast {
         std::shared_ptr<StatementNode> ParseStatement();
         std::shared_ptr<LetStatement> ParseLetStatement();
         std::shared_ptr<FuncStatement> ParseFuncStatement();
+        std::shared_ptr<Identifier> ParseIdentifier(std::shared_ptr<DataType> dataType);
 
         std::shared_ptr<ExpressionNode> ParseExpression(Precedence precedence);
         std::shared_ptr<ExpressionNode> ParsePrefixExpression();

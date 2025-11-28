@@ -10,6 +10,7 @@ add_library(parser STATIC
         ast/DataTypeFunc.h
         ast/PrefixExpression.h
         ast/InfixExpression.h
+        ast/DataTypeVoid.h
 )
 
 target_link_libraries(parser

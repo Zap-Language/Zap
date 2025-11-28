@@ -17,7 +17,7 @@ namespace ast {
 
         Token::Token token;
         std::shared_ptr<Identifier> name;
-        std::pmr::vector<std::shared_ptr<Identifier>> parameters;
+        std::vector<std::shared_ptr<Identifier>> parameters;
         std::shared_ptr<DataType> returnType;
         std::vector<std::shared_ptr<StatementNode>> body;
     };

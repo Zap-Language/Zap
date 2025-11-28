@@ -11,12 +11,13 @@ int main(int argc, char** argv) {
     }
 
     std::ifstream ifs(argv[1]);
-    std::string input;
-    while (std::getline(ifs, input)) {
-        Lexer lexer(input);
-        ast::Parser parser(lexer);
-        auto program = parser.ParseProgram();
+    std::istreambuf_iterator<char> begin(ifs);
+    std::istreambuf_iterator<char> end;
 
-        std::cout << program->String() << std::endl;
-    }
+    std::string input(begin, end);
+    Lexer lexer(input);
+    ast::Parser parser(lexer);
+    auto program = parser.ParseProgram();
+
+    std::cout << program->String() << std::endl;
 }
