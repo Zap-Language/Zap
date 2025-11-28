@@ -32,6 +32,8 @@ namespace ast {
         std::shared_ptr<FuncStatement> ParseFuncStatement();
 
         std::shared_ptr<ExpressionNode> ParseExpression(Precedence precedence);
+        std::shared_ptr<ExpressionNode> ParsePrefixExpression();
+        std::shared_ptr<ExpressionNode> ParseInfixExpression(std::shared_ptr<ExpressionNode> leftExpression);
 
         std::shared_ptr<DataType> ParseDataType();
 
@@ -41,7 +43,13 @@ namespace ast {
         bool CurrentTokenIs(Token::TokenType tokenType) const;
         bool PeekTokenIs(Token::TokenType tokenType) const;
 
-        std::shared_ptr<ExpressionNode> ParseIntegerLiteral();
+        std::shared_ptr<ExpressionNode> ParseIntegerLiteral() const;
+
+        template <typename T>
+        void RegisterPrefix(Token::TokenType tokenType, T callback);
+
+        template <typename T>
+        void RegisterInfix(Token::TokenType tokenType, T callback);
 
         Lexer _lexer;
 
@@ -55,8 +63,23 @@ namespace ast {
             std::function<std::shared_ptr<ExpressionNode>()>
         > _prefixParseFunction;
 
+        std::unordered_map<
+            Token::TokenType,
+            std::function<std::shared_ptr<ExpressionNode>(std::shared_ptr<ExpressionNode>)>
+        > _infixParseFunction;
+
         std::unordered_map<Token::TokenType, Precedence> _precedence;
     };
+
+    template<typename T>
+    void Parser::RegisterPrefix(Token::TokenType tokenType, T callback) {
+        _prefixParseFunction.emplace(tokenType, [callback](){return callback();});
+    }
+
+    template<typename T>
+    void Parser::RegisterInfix(Token::TokenType tokenType, T callback) {
+        _infixParseFunction.emplace(tokenType, [callback](){return callback();});
+    }
 } // ast
 
 #endif //ZAP_PARSER_H

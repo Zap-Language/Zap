@@ -8,6 +8,8 @@ add_library(parser STATIC
         ast/DataTypeInt.h
         ast/IntLiteral.h
         ast/DataTypeFunc.h
+        ast/PrefixExpression.h
+        ast/InfixExpression.h
 )
 
 target_link_libraries(parser
