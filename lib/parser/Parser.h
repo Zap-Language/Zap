@@ -45,12 +45,6 @@ namespace ast {
 
         std::shared_ptr<ExpressionNode> ParseIntegerLiteral() const;
 
-        template <typename T>
-        void RegisterPrefix(Token::TokenType tokenType, T callback);
-
-        template <typename T>
-        void RegisterInfix(Token::TokenType tokenType, T callback);
-
         Lexer _lexer;
 
         Token::Token _currentToken;
@@ -70,16 +64,6 @@ namespace ast {
 
         std::unordered_map<Token::TokenType, Precedence> _precedence;
     };
-
-    template<typename T>
-    void Parser::RegisterPrefix(Token::TokenType tokenType, T callback) {
-        _prefixParseFunction.emplace(tokenType, [callback](){return callback();});
-    }
-
-    template<typename T>
-    void Parser::RegisterInfix(Token::TokenType tokenType, T callback) {
-        _infixParseFunction.emplace(tokenType, [callback](){return callback();});
-    }
 } // ast
 
 #endif //ZAP_PARSER_H
