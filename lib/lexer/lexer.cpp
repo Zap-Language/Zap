@@ -66,7 +66,7 @@ Token::Token Lexer::NextToken() {
             token = Token::Token(Token::Slash, "/");
             break;
         case '%':
-            token = Token::Token(Token::Modulo, "%");
+            token = Token::Token(Token::Percent, "%");
             break;
         case '|': {
             if (*this->_peakChar == '|') {

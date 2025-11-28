@@ -20,7 +20,7 @@ enum TokenType {
         Asterisk,
         Slash,
         Power,
-        Modulo,
+        Percent,
 
         Bang,
         And,
