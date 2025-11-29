@@ -1,3 +1,12 @@
+include(FetchContent)
+
+FetchContent_Declare(
+        magic_enum
+        GIT_REPOSITORY https://github.com/Neargye/magic_enum.git
+)
+
+FetchContent_MakeAvailable(magic_enum)
+
 add_library(parser STATIC
         parser.cpp
         ast/Program.h
@@ -15,10 +24,12 @@ add_library(parser STATIC
         ast/ArgumentList.h
         utils.h
         utils.cpp
+        ast/FuncExpression.h
 )
 
 target_link_libraries(parser
         PRIVATE lexer
+        PRIVATE magic_enum::magic_enum
 )
 
 target_link_directories(parser

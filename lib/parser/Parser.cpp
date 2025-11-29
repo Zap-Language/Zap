@@ -1,5 +1,6 @@
 #include "Parser.h"
 
+#include <magic_enum/magic_enum.hpp>
 #include <algorithm>
 #include <iostream>
 #include <utility>
@@ -18,6 +19,7 @@ namespace ast {
         _prefixParseFunction.emplace(Token::Ident, [this] { return ParseIdentifier(nullptr); });
         _prefixParseFunction.emplace(Token::Bang, [this] { return ParsePrefixExpression(); });
         _prefixParseFunction.emplace(Token::Minus, [this] { return ParsePrefixExpression(); });
+        _prefixParseFunction.emplace(Token::Func, [this] { return ParseFuncExpression(); });
 
         // Infix parsers preparation
         _infixParseFunction.emplace(Token::Plus, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
@@ -65,6 +67,21 @@ namespace ast {
         return program;
     }
 
+    void Parser::PrintErrors() const {
+        if (!_errors.empty()) {
+            std::cout << std::string(8, '=') << "ERRORS:" << std::string(8, '=') << std::endl;
+        }
+
+        for (const auto& error : _errors) {
+            std::cout << error << std::endl;
+        }
+
+
+        if (!_errors.empty()) {
+            std::cout << std::string(23, '=') << std::endl;
+        }
+    }
+
     std::shared_ptr<StatementNode> Parser::ParseStatement() {
         switch (_currentToken.tokenType) {
             case Token::Func:
@@ -74,7 +91,8 @@ namespace ast {
             case Token::NewLine:
                 return nullptr;
             default:
-                _errors.emplace_back("unknown token type");
+                auto tokenName =  magic_enum::enum_name(_currentToken.tokenType);
+                _errors.emplace_back("unknown token type: " + std::string(tokenName));
                 return nullptr;
         }
     }
@@ -87,7 +105,7 @@ namespace ast {
             return nullptr;
         }
 
-        auto name = std::make_shared<Identifier>();
+        const auto name = std::make_shared<Identifier>();
         name->token = _currentToken;
 
         if (!ExpectPeek(Token::Assign)) {
@@ -123,7 +141,9 @@ namespace ast {
 
     bool Parser::ExpectPeek(const Token::TokenType tokenType) {
         if (_peekToken.tokenType != tokenType) {
-           _errors.emplace_back("peek expected " + _peekToken.tokenLiteral);
+            auto tokenName =  magic_enum::enum_name(tokenType);
+            auto peekTokenName =  magic_enum::enum_name(_peekToken.tokenType);
+           _errors.emplace_back("peek expected " + std::string(tokenName) + ", got: " + std::string(peekTokenName));
             return false;
         }
 
@@ -135,11 +155,11 @@ namespace ast {
         auto funcDataType = std::make_shared<DataTypeFunc>();
         auto funcStatement = std::make_shared<FuncStatement>();
         funcStatement->token = _currentToken;
-        if (PeekTokenIs(Token::Ident)) {
-            NextToken();
-            funcStatement->name = ParseIdentifier(funcDataType);
+        if (!ExpectPeek(Token::Ident)) {
+            return nullptr;
         }
 
+        funcStatement->name = ParseIdentifier(funcDataType);
         if (!ExpectPeek(Token::LParen)) {
             return nullptr;
         }
@@ -173,7 +193,7 @@ namespace ast {
             return nullptr;
         }
 
-        auto body = ParseBlockStatement();
+        const auto body = ParseBlockStatement();
         if (body == nullptr) {
             return nullptr;
         }
@@ -277,6 +297,48 @@ namespace ast {
         expression->rightExpression = ParseExpression(precedence);
 
         return expression;
+    }
+
+    std::shared_ptr<FuncExpression> Parser::ParseFuncExpression() {
+        // TODO: надо от повторений c Parser::ParseFuncStatement() избавиться
+        auto funcExpression = std::make_shared<FuncExpression>();
+        funcExpression->token = _currentToken;
+        if (!ExpectPeek(Token::LParen)) {
+            return nullptr;
+        }
+
+        funcExpression->arguments = ParseArgumentList();
+        if (funcExpression->arguments == nullptr) {
+            return nullptr;
+        }
+
+        NextToken();
+        std::shared_ptr<DataType> returnType;
+        if (!CurrentTokenIs(Token::LBrace)) {
+            returnType = ParseDataType();
+            if (returnType == nullptr) {
+                return nullptr;
+            }
+
+            NextToken();
+        } else {
+            returnType = VOID;
+        }
+
+        funcExpression->returnType = returnType;
+
+        if (!CurrentTokenIs(Token::LBrace)) {
+            _errors.emplace_back("function expected '{' literal, got: " + _currentToken.tokenLiteral);
+            return nullptr;
+        }
+
+        const auto body = ParseBlockStatement();
+        if (body == nullptr) {
+            return nullptr;
+        }
+
+        funcExpression->body = body;
+        return funcExpression;
     }
 
     bool Parser::CurrentTokenIs(const Token::TokenType tokenType) const {

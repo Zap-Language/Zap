@@ -19,5 +19,7 @@ int main(int argc, char** argv) {
     ast::Parser parser(lexer);
     auto program = parser.ParseProgram();
 
+
+    parser.PrintErrors();
     std::cout << program->String() << std::endl;
 }

@@ -5,6 +5,7 @@
 
 #include "ast/ArgumentList.h"
 #include "ast/BlockStatement.h"
+#include "ast/FuncExpression.h"
 #include "ast/FuncStatement.h"
 #include "ast/LetStatement.h"
 #include "ast/Program.h"
@@ -28,6 +29,8 @@ namespace ast {
         explicit Parser(Lexer lexer);
 
         std::unique_ptr<Program> ParseProgram();
+
+        void PrintErrors() const;
     private:
         std::shared_ptr<StatementNode> ParseStatement();
         std::shared_ptr<LetStatement> ParseLetStatement();
@@ -39,6 +42,7 @@ namespace ast {
         std::shared_ptr<ExpressionNode> ParseExpression(Precedence precedence);
         std::shared_ptr<ExpressionNode> ParsePrefixExpression();
         std::shared_ptr<ExpressionNode> ParseInfixExpression(std::shared_ptr<ExpressionNode> leftExpression);
+        std::shared_ptr<FuncExpression> ParseFuncExpression();
 
         std::shared_ptr<DataType> ParseDataType();
 
