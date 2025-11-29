@@ -3,6 +3,8 @@
 #include <functional>
 #include <lexer/lexer.h>
 
+#include "ast/ArgumentList.h"
+#include "ast/BlockStatement.h"
 #include "ast/FuncStatement.h"
 #include "ast/LetStatement.h"
 #include "ast/Program.h"
@@ -30,8 +32,10 @@ namespace ast {
         std::shared_ptr<StatementNode> ParseStatement();
         std::shared_ptr<LetStatement> ParseLetStatement();
         std::shared_ptr<FuncStatement> ParseFuncStatement();
-        std::shared_ptr<Identifier> ParseIdentifier(std::shared_ptr<DataType> dataType);
+        std::shared_ptr<BlockStatement> ParseBlockStatement();
+        std::shared_ptr<ArgumentList> ParseArgumentList();
 
+        std::shared_ptr<Identifier> ParseIdentifier(std::shared_ptr<DataType> dataType) const;
         std::shared_ptr<ExpressionNode> ParseExpression(Precedence precedence);
         std::shared_ptr<ExpressionNode> ParsePrefixExpression();
         std::shared_ptr<ExpressionNode> ParseInfixExpression(std::shared_ptr<ExpressionNode> leftExpression);

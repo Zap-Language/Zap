@@ -11,6 +11,10 @@ add_library(parser STATIC
         ast/PrefixExpression.h
         ast/InfixExpression.h
         ast/DataTypeVoid.h
+        ast/BlockStatement.h
+        ast/ArgumentList.h
+        utils.h
+        utils.cpp
 )
 
 target_link_libraries(parser

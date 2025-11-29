@@ -19,7 +19,7 @@ namespace ast {
     };
 
     inline std::string Identifier::String() {
-        return token.tokenLiteral;
+        return token.tokenLiteral + " ";
     }
 
     inline std::string Identifier::TokenLiteral() {

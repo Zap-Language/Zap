@@ -24,7 +24,7 @@ namespace ast {
 
         result += "let ";
         result += name->String();
-        result += " = ";
+        result += "= ";
         result += value->String();
 
         return result;

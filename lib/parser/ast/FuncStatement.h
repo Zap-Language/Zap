@@ -17,9 +17,9 @@ namespace ast {
 
         Token::Token token;
         std::shared_ptr<Identifier> name;
-        std::vector<std::shared_ptr<Identifier>> parameters;
+        std::shared_ptr<ArgumentList> arguments;
         std::shared_ptr<DataType> returnType;
-        std::vector<std::shared_ptr<StatementNode>> body;
+        std::shared_ptr<BlockStatement> body;
     };
 
     inline std::string FuncStatement::String() {
@@ -28,18 +28,10 @@ namespace ast {
         result += "func ";
         result += name->String();
         result += "(";
-        for (const auto& parameter : parameters) {
-            result += parameter->String();
-        }
-
+        result += arguments->String();
         result += ") ";
         result += returnType->String();
-        result += " {\n";
-        for (const auto& stmt : body) {
-            result += stmt->String() + '\n';
-        }
-
-        result += "}";
+        result += body->String();
         return result;
     }
 

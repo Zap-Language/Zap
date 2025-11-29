@@ -17,7 +17,7 @@ namespace ast {
     }
 
     inline std::string DataTypeInt::String() {
-        return "int";
+        return "int ";
     }
 }
 

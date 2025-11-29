@@ -19,7 +19,7 @@ namespace ast {
     };
 
     inline std::string InfixExpression::String() {
-        return leftExpression->String() + token.tokenLiteral + rightExpression->String();
+        return leftExpression->String() + token.tokenLiteral + " " + rightExpression->String();
     }
 
     inline std::string InfixExpression::TokenLiteral() {

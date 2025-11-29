@@ -14,7 +14,7 @@ namespace ast {
 
         std::string TokenLiteral() override;
 
-        std::vector<std::shared_ptr<StatementNode> > statements;
+        std::vector<std::shared_ptr<StatementNode>> statements;
         Token::Token _token;
     };
 

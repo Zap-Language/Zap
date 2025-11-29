@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "DataType.h"
+#include "utils.h"
 
 namespace ast {
     struct DataTypeFunc : public DataType {
@@ -25,7 +26,12 @@ namespace ast {
         std::string result = "func(";
 
         for (const auto& param : params) {
-            result += param->String() + ", ";
+            result += trim(param->String()) + ", ";
+        }
+
+        if (!result.empty()) {
+            result.pop_back();
+            result.pop_back();
         }
 
         result += ") ";

@@ -17,7 +17,7 @@ namespace ast {
     };
 
     inline std::string IntLiteral::String() {
-        return std::to_string(value);
+        return std::to_string(value) + " ";
     }
 
     inline std::string IntLiteral::TokenLiteral() {

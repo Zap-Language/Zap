@@ -1,5 +1,7 @@
 #include "Parser.h"
 
+#include <algorithm>
+#include <iostream>
 #include <utility>
 
 #include "ast/DataTypeFunc.h"
@@ -13,6 +15,7 @@ namespace ast {
     Parser::Parser(Lexer lexer) : _lexer(std::move(lexer)) {
         // Prefix parsers preparation
         _prefixParseFunction.emplace(Token::Integer, [this] { return ParseIntegerLiteral(); });
+        _prefixParseFunction.emplace(Token::Ident, [this] { return ParseIdentifier(nullptr); });
         _prefixParseFunction.emplace(Token::Bang, [this] { return ParsePrefixExpression(); });
         _prefixParseFunction.emplace(Token::Minus, [this] { return ParsePrefixExpression(); });
 
@@ -118,7 +121,7 @@ namespace ast {
         _peekToken = _lexer.NextToken();
     }
 
-    bool Parser::ExpectPeek(Token::TokenType tokenType) {
+    bool Parser::ExpectPeek(const Token::TokenType tokenType) {
         if (_peekToken.tokenType != tokenType) {
            _errors.emplace_back("peek expected " + _peekToken.tokenLiteral);
             return false;
@@ -141,25 +144,12 @@ namespace ast {
             return nullptr;
         }
 
-        NextToken();
-        while (!CurrentTokenIs(Token::RParen)) {
-            auto dataType = ParseDataType();
-            if (dataType == nullptr) {
-                return nullptr;
-            }
-
-            if (!ExpectPeek(Token::Ident)) {
-                return nullptr;
-            }
-
-            auto param = ParseIdentifier(dataType);
-            NextToken();
-            if (CurrentTokenIs(Token::Comma)) {
-                NextToken();
-            }
-
-            funcStatement->parameters.emplace_back(param);
-            funcDataType->params.emplace_back(dataType);
+        funcStatement->arguments = ParseArgumentList();
+        if (const auto args = funcStatement->arguments; args != nullptr) {
+            funcDataType->params.reserve(args->arguments.size());
+            std::ranges::transform(args->arguments, std::back_inserter(funcDataType->params), &Identifier::type);
+        } else {
+            return nullptr;
         }
 
         NextToken();
@@ -183,20 +173,62 @@ namespace ast {
             return nullptr;
         }
 
+        auto body = ParseBlockStatement();
+        if (body == nullptr) {
+            return nullptr;
+        }
+
+        funcStatement->body = body;
+        return funcStatement;
+    }
+
+    std::shared_ptr<BlockStatement> Parser::ParseBlockStatement() {
+        auto blockStatement = std::make_shared<BlockStatement>();
+        if (!CurrentTokenIs(Token::LBrace)) {
+            _errors.emplace_back("expected '{' for block statement " + _currentToken.tokenLiteral);
+            return nullptr;
+        }
+
         NextToken();
-        while (!CurrentTokenIs(Token::RBrace)) {
+        while (!CurrentTokenIs(Token::RBrace) && !CurrentTokenIs(Token::Eof)) {
             auto statement = ParseStatement();
             if (statement != nullptr) {
-                funcStatement->body.emplace_back(statement);
+                blockStatement->statements.emplace_back(statement);
             }
 
             NextToken();
         }
 
-        return funcStatement;
+        return blockStatement;
     }
 
-    std::shared_ptr<Identifier> Parser::ParseIdentifier(std::shared_ptr<DataType> dataType) {
+    std::shared_ptr<ArgumentList> Parser::ParseArgumentList() {
+        auto argumentList = std::make_shared<ArgumentList>();
+        argumentList->token = _currentToken;
+        NextToken();
+        while (!CurrentTokenIs(Token::RParen)) {
+            auto dataType = ParseDataType();
+            if (dataType == nullptr) {
+                return nullptr;
+            }
+
+            if (!ExpectPeek(Token::Ident)) {
+                return nullptr;
+            }
+
+            auto param = ParseIdentifier(dataType);
+            NextToken();
+            if (CurrentTokenIs(Token::Comma)) {
+                NextToken();
+            }
+
+            argumentList->arguments.emplace_back(param);
+        }
+
+        return argumentList;
+    }
+
+    std::shared_ptr<Identifier> Parser::ParseIdentifier(std::shared_ptr<DataType> dataType) const {
         auto identifier = std::make_shared<Identifier>();
         identifier->token = _currentToken;
         identifier->type = std::move(dataType);
