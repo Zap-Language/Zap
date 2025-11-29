@@ -7,10 +7,7 @@
 #include "lexer/Token.h"
 
 namespace ast {
-    const std::string LEFT_MARGIN = "    ";
-    // const std::string LEFT_MARGIN = std::string(" ", 4);
-
-    struct BlockStatement : public StatementNode {
+    struct BlockStatement final : public StatementNode {
         std::string String() override;
 
         std::string TokenLiteral() override;
@@ -26,7 +23,7 @@ namespace ast {
 
         result += "{\n";
         for (const auto& item : statements) {
-            result += LEFT_MARGIN + item->String() + '\n';
+            result += item->String() + '\n';
         }
 
         result += "}";
