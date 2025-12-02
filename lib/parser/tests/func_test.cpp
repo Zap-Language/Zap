@@ -1,10 +1,9 @@
 #include <gtest/gtest.h>
 #include <parser/parser.h>
 #include <lexer/lexer.h>
-
-#include "utils.h"
-#include "ast/DataTypeInt.h"
-#include "ast/DataTypeVoid.h"
+#include <utils.h>
+#include <ast/DataTypeInt.h>
+#include <ast/DataTypeVoid.h>
 
 std::unique_ptr<ast::Program> parse(std::string& input) {
     const Lexer lexer(input);

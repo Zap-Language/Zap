@@ -7,15 +7,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(magic_enum)
 
-# тестики
-FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG v1.17.0
-)
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
-
 add_library(parser STATIC
         parser.cpp
         ast/Program.h
@@ -34,6 +25,7 @@ add_library(parser STATIC
         utils.h
         utils.cpp
         ast/FuncExpression.h
+        ast/DataTypeBool.h
 )
 
 target_link_libraries(parser
@@ -50,17 +42,4 @@ target_include_directories(parser
         PUBLIC ..
 )
 
-enable_testing()
-
-add_executable(func_tests
-        tests/func_test.cpp
-)
-
-target_link_libraries(func_tests
-        PRIVATE parser
-        PRIVATE lexer
-        GTest::gtest_main
-)
-
-target_include_directories(func_tests PRIVATE .)
-add_test(NAME func_tests COMMAND func_tests)
+add_subdirectory(tests)
