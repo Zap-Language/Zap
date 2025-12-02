@@ -35,6 +35,8 @@ enum TokenType {
         Semicolon,
         Colon,
         Dot,
+        Apostrophe,
+        Quote,
         NewLine,
 
         LParen,
