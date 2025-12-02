@@ -35,6 +35,7 @@ add_library(parser STATIC
         ast/StringLiteral.h
         ast/CharLiteral.h
         ast/ReturnStatement.h
+        ast/CallExpression.h
 )
 
 target_link_libraries(parser

@@ -6,6 +6,7 @@
 #include "ast/ArgumentList.h"
 #include "ast/BlockStatement.h"
 #include "ast/BoolLiteral.h"
+#include "ast/CallExpression.h"
 #include "ast/CharLiteral.h"
 #include "ast/FloatLiteral.h"
 #include "ast/FuncExpression.h"
@@ -49,8 +50,12 @@ namespace ast {
         std::shared_ptr<ExpressionNode> ParsePrefixExpression();
         std::shared_ptr<ExpressionNode> ParseInfixExpression(std::shared_ptr<ExpressionNode> leftExpression);
         std::shared_ptr<FuncExpression> ParseFuncExpression();
+        std::shared_ptr<CallExpression> ParseCallExpression(std::shared_ptr<ExpressionNode> leftExpression);
+        std::vector<std::shared_ptr<ExpressionNode>> ParseCallArguments();
 
         std::shared_ptr<DataType> ParseDataType();
+
+        Precedence PeekPrecedence();
 
         void NextToken();
 

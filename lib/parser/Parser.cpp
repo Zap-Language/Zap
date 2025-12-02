@@ -41,6 +41,7 @@ namespace ast {
         _infixParseFunction.emplace(Token::NotEqual, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
         _infixParseFunction.emplace(Token::Less, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
         _infixParseFunction.emplace(Token::Greater, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
+        _infixParseFunction.emplace(Token::LParen, [this](const std::shared_ptr<ExpressionNode> &leftExpression) { return ParseCallExpression(leftExpression); });
 
         _precedence.emplace(Token::Or, OR);
         _precedence.emplace(Token::And, AND);
@@ -158,6 +159,14 @@ namespace ast {
                 _errors.emplace_back("unknown data type: " + _currentToken.tokenLiteral);
                 return nullptr;
         }
+    }
+
+    Precedence Parser::PeekPrecedence() {
+        if (_precedence.contains(_peekToken.tokenType)) {
+            return _precedence.at(_peekToken.tokenType);
+        }
+
+        return LOWEST;
     }
 
     void Parser::NextToken() {
@@ -302,7 +311,11 @@ namespace ast {
 
         auto prefix = _prefixParseFunction.at(_currentToken.tokenType);
         std::shared_ptr<ExpressionNode> leftExpression = prefix();
-        while (!PeekTokenIs(Token::NewLine) && !PeekTokenIs(Token::Eof) && precedence < _precedence.at(_peekToken.tokenType)) {
+        while (!PeekTokenIs(Token::NewLine) && !PeekTokenIs(Token::Eof) && precedence < PeekPrecedence()) {
+            if (!_infixParseFunction.contains(_peekToken.tokenType)) {
+                _errors.emplace_back("no infix function for " + std::string(magic_enum::enum_name(_peekToken.tokenType)));
+                return nullptr;
+            }
             auto infix = _infixParseFunction.at(_peekToken.tokenType);
             if (infix == nullptr) {
                 return leftExpression;
@@ -377,6 +390,44 @@ namespace ast {
 
         funcExpression->body = body;
         return funcExpression;
+    }
+
+    std::shared_ptr<CallExpression> Parser::ParseCallExpression(std::shared_ptr<ExpressionNode> leftExpression) {
+        auto expression = std::make_shared<CallExpression>();
+        expression->token = _currentToken;
+        expression->function = leftExpression;
+        NextToken();
+
+        expression->arguments = ParseCallArguments();
+        if (!expression->arguments.empty() && *expression->arguments.rbegin() == nullptr) {
+            return nullptr;
+        }
+
+        NextToken();
+        return expression;
+    }
+
+    std::vector<std::shared_ptr<ExpressionNode>> Parser::ParseCallArguments() {
+        std::vector<std::shared_ptr<ExpressionNode>> argumentList;
+        if (CurrentTokenIs(Token::RParen)) {
+            return argumentList;
+        }
+
+        argumentList.emplace_back(ParseExpression(LOWEST));
+        if (*argumentList.rbegin() == nullptr) {
+            return argumentList;
+        }
+
+        while (PeekTokenIs(Token::Comma)) {
+            NextToken();
+            NextToken();
+            argumentList.emplace_back(ParseExpression(LOWEST));
+            if (*argumentList.rbegin() == nullptr) {
+                return argumentList;
+            }
+        }
+
+        return argumentList;
     }
 
     bool Parser::CurrentTokenIs(const Token::TokenType tokenType) const {
