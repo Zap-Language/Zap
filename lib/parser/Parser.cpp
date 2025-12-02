@@ -96,6 +96,8 @@ namespace ast {
                 return ParseFuncStatement();
             case Token::Let:
                 return ParseLetStatement();
+            case Token::Return:
+                return ParseReturnStatement();
             case Token::NewLine:
                 return nullptr;
             default:
@@ -142,7 +144,7 @@ namespace ast {
                 return ast::STRING;
             case Token::BoolType:
                 return ast::BOOL;
-            case Token::Char:
+            case Token::CharType:
                 return ast::CHAR;
             case Token::LBracket: {
                 if (!ExpectPeek(Token::RBracket)) {
@@ -244,6 +246,18 @@ namespace ast {
         }
 
         return blockStatement;
+    }
+
+    std::shared_ptr<ReturnStatement> Parser::ParseReturnStatement() {
+        auto returnStatement = std::make_shared<ReturnStatement>();
+        returnStatement->token = _currentToken;
+        NextToken();
+        returnStatement->expression = ParseExpression(LOWEST);
+        if (returnStatement->expression == nullptr) {
+            return nullptr;
+        }
+
+        return returnStatement;
     }
 
     std::shared_ptr<ArgumentList> Parser::ParseArgumentList() {

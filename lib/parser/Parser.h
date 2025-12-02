@@ -13,6 +13,7 @@
 #include "ast/IntLiteral.h"
 #include "ast/LetStatement.h"
 #include "ast/Program.h"
+#include "ast/ReturnStatement.h"
 #include "ast/StringLiteral.h"
 
 namespace ast {
@@ -36,11 +37,11 @@ namespace ast {
         std::unique_ptr<Program> ParseProgram();
 
         void PrintErrors() const;
-    private:
         std::shared_ptr<StatementNode> ParseStatement();
         std::shared_ptr<LetStatement> ParseLetStatement();
         std::shared_ptr<FuncStatement> ParseFuncStatement();
         std::shared_ptr<BlockStatement> ParseBlockStatement();
+        std::shared_ptr<ReturnStatement> ParseReturnStatement();
         std::shared_ptr<ArgumentList> ParseArgumentList();
 
         std::shared_ptr<Identifier> ParseIdentifier(std::shared_ptr<DataType> dataType) const;

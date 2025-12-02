@@ -34,6 +34,7 @@ add_library(parser STATIC
         ast/FloatLiteral.h
         ast/StringLiteral.h
         ast/CharLiteral.h
+        ast/ReturnStatement.h
 )
 
 target_link_libraries(parser
