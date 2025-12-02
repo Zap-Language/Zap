@@ -30,6 +30,10 @@ add_library(parser STATIC
         ast/DataTypeChar.h
         ast/DataTypeString.h
         ast/DataTypeArray.h
+        ast/BoolLiteral.h
+        ast/FloatLiteral.h
+        ast/StringLiteral.h
+        ast/CharLiteral.h
 )
 
 target_link_libraries(parser

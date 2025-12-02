@@ -20,6 +20,11 @@ namespace ast {
         // Prefix parsers preparation
         _prefixParseFunction.emplace(Token::Integer, [this] { return ParseIntegerLiteral(); });
         _prefixParseFunction.emplace(Token::Ident, [this] { return ParseIdentifier(nullptr); });
+        _prefixParseFunction.emplace(Token::Float, [this] { return ParseFloatLiteral(); });
+        _prefixParseFunction.emplace(Token::True, [this] { return ParseBoolLiteral(); });
+        _prefixParseFunction.emplace(Token::False, [this] { return ParseBoolLiteral(); });
+        _prefixParseFunction.emplace(Token::Apostrophe, [this] { return ParseCharLiteral(); });
+        _prefixParseFunction.emplace(Token::Quote, [this] { return ParseStringLiteral();});
         _prefixParseFunction.emplace(Token::Bang, [this] { return ParsePrefixExpression(); });
         _prefixParseFunction.emplace(Token::Minus, [this] { return ParsePrefixExpression(); });
         _prefixParseFunction.emplace(Token::Func, [this] { return ParseFuncExpression(); });
@@ -368,11 +373,61 @@ namespace ast {
         return _peekToken.tokenType == tokenType;
     }
 
-    std::shared_ptr<ExpressionNode> Parser::ParseIntegerLiteral() const {
+    std::shared_ptr<IntLiteral> Parser::ParseIntegerLiteral() const {
         auto integerLiteral = std::make_shared<IntLiteral>();
         integerLiteral->token = _currentToken;
         integerLiteral->value = std::strtoll(_currentToken.tokenLiteral.c_str(), nullptr, 10);
 
         return integerLiteral;
+    }
+
+    std::shared_ptr<FloatLiteral> Parser::ParseFloatLiteral() const {
+        auto floatLiteral = std::make_shared<FloatLiteral>();
+        floatLiteral->token = _currentToken;
+        floatLiteral->value = std::strtod(_currentToken.tokenLiteral.c_str(), nullptr);
+
+        return floatLiteral;
+    }
+
+    std::shared_ptr<BoolLiteral> Parser::ParseBoolLiteral() const {
+        auto boolLiteral = std::make_shared<BoolLiteral>();
+        boolLiteral->token = _currentToken;
+        boolLiteral->value = _currentToken.tokenType == Token::True;
+
+        return boolLiteral;
+    }
+
+    std::shared_ptr<CharLiteral> Parser::ParseCharLiteral() {
+        auto charLiteral = std::make_shared<CharLiteral>();
+        charLiteral->token = _currentToken;
+        if (!ExpectPeek(Token::Ident)) {
+            return nullptr;
+        }
+
+        if (_currentToken.tokenLiteral.length() != 1) {
+            return nullptr;
+        }
+
+        charLiteral->value = _currentToken.tokenLiteral[0];
+        if (!ExpectPeek(Token::Apostrophe)) {
+            return nullptr;
+        }
+
+        return charLiteral;
+    }
+
+    std::shared_ptr<StringLiteral> Parser::ParseStringLiteral() {
+        auto stringLiteral = std::make_shared<StringLiteral>();
+        stringLiteral->token = _currentToken;
+        if (!ExpectPeek(Token::Ident)) {
+            return nullptr;
+        }
+
+        stringLiteral->value = _currentToken.tokenLiteral;
+        if (!ExpectPeek(Token::Quote)) {
+            return nullptr;
+        }
+
+        return stringLiteral;
     }
 } // ast

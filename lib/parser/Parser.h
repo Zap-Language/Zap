@@ -5,10 +5,15 @@
 
 #include "ast/ArgumentList.h"
 #include "ast/BlockStatement.h"
+#include "ast/BoolLiteral.h"
+#include "ast/CharLiteral.h"
+#include "ast/FloatLiteral.h"
 #include "ast/FuncExpression.h"
 #include "ast/FuncStatement.h"
+#include "ast/IntLiteral.h"
 #include "ast/LetStatement.h"
 #include "ast/Program.h"
+#include "ast/StringLiteral.h"
 
 namespace ast {
     enum Precedence {
@@ -52,7 +57,11 @@ namespace ast {
         bool CurrentTokenIs(Token::TokenType tokenType) const;
         bool PeekTokenIs(Token::TokenType tokenType) const;
 
-        std::shared_ptr<ExpressionNode> ParseIntegerLiteral() const;
+        std::shared_ptr<IntLiteral> ParseIntegerLiteral() const;
+        std::shared_ptr<FloatLiteral> ParseFloatLiteral() const;
+        std::shared_ptr<BoolLiteral> ParseBoolLiteral() const;
+        std::shared_ptr<CharLiteral> ParseCharLiteral();
+        std::shared_ptr<StringLiteral> ParseStringLiteral();
 
         Lexer _lexer;
 
