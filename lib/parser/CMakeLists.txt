@@ -1,11 +1,20 @@
 include(FetchContent)
 
+# чтобы енамы по именам отображать
 FetchContent_Declare(
         magic_enum
         GIT_REPOSITORY https://github.com/Neargye/magic_enum.git
 )
-
 FetchContent_MakeAvailable(magic_enum)
+
+# тестики
+FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.17.0
+)
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
 
 add_library(parser STATIC
         parser.cpp
@@ -33,10 +42,25 @@ target_link_libraries(parser
 )
 
 target_link_directories(parser
-        PRIVATE ../
+        PUBLIC ../
 )
 
 target_include_directories(parser
         PRIVATE .
-        PRIVATE ..
+        PUBLIC ..
 )
+
+enable_testing()
+
+add_executable(func_tests
+        tests/func_test.cpp
+)
+
+target_link_libraries(func_tests
+        PRIVATE parser
+        PRIVATE lexer
+        GTest::gtest_main
+)
+
+target_include_directories(func_tests PRIVATE .)
+add_test(NAME func_tests COMMAND func_tests)
