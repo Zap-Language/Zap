@@ -26,6 +26,10 @@ add_library(parser STATIC
         utils.cpp
         ast/FuncExpression.h
         ast/DataTypeBool.h
+        ast/DataTypeFloat.h
+        ast/DataTypeChar.h
+        ast/DataTypeString.h
+        ast/DataTypeArray.h
 )
 
 target_link_libraries(parser

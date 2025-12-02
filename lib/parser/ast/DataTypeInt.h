@@ -8,17 +8,17 @@ namespace ast {
         TypeDataType Type() override;
 
         std::string String() override;
-
-        TypeDataType type;
     };
 
     inline TypeDataType DataTypeInt::Type() {
-        return type;
+        return ast::Int;
     }
 
     inline std::string DataTypeInt::String() {
         return "int ";
     }
+
+    const auto INT = std::make_shared<DataTypeInt>();
 }
 
 #endif //ZAP_DATATYPEINT_H

@@ -5,8 +5,11 @@
 #include <iostream>
 #include <utility>
 
+#include "ast/DataTypeBool.h"
+#include "ast/DataTypeFloat.h"
 #include "ast/DataTypeFunc.h"
 #include "ast/DataTypeInt.h"
+#include "ast/DataTypeString.h"
 #include "ast/DataTypeVoid.h"
 #include "ast/InfixExpression.h"
 #include "ast/IntLiteral.h"
@@ -127,7 +130,23 @@ namespace ast {
     std::shared_ptr<DataType> Parser::ParseDataType() {
         switch (_currentToken.tokenType) {
             case Token::IntType:
-                return std::make_shared<DataTypeInt>();
+                return ast::INT;
+            case Token::FloatType:
+                return ast::FLOAT;
+            case Token::StringType:
+                return ast::STRING;
+            case Token::BoolType:
+                return ast::BOOL;
+            case Token::Char:
+                return ast::CHAR;
+            case Token::LBracket: {
+                if (!ExpectPeek(Token::RBracket)) {
+                    return nullptr;
+                }
+
+                NextToken();
+                return std::make_shared<DataTypeArray>(ast::DataTypeArray(ParseDataType()));
+            }
             default:
                 _errors.emplace_back("unknown data type: " + _currentToken.tokenLiteral);
                 return nullptr;
