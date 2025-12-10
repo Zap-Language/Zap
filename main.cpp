@@ -3,8 +3,9 @@
 #include <lexer/lexer.h>
 
 #include "parser/Parser.h"
+#include "parser/SemanticAnalyzer.h"
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <file>" << std::endl;
         return 1;
@@ -19,7 +20,24 @@ int main(int argc, char** argv) {
     ast::Parser parser(lexer);
     auto program = parser.ParseProgram();
 
-
     parser.PrintErrors();
-    std::cout << program->String() << std::endl;
+
+    if (!program) {
+        std::cerr << "Failed to parse program" << std::endl;
+        return 1;
+    }
+
+    ast::SemanticAnalyzer analyzer;
+    std::shared_ptr<ast::Program> sharedProgram(program.release());
+    bool success = analyzer.AnalyzeProgram(sharedProgram);
+
+    std::cout << "Semantic analysis successful: " << (success ? "YES" : "NO") << std::endl;
+    analyzer.PrintErrors();
+
+    if (success) {
+        std::cout << "\nSymbol table" << std::endl;
+        analyzer.PrintSymbolTable();
+    }
+
+    return success ? 0 : 1;
 }

@@ -4,7 +4,7 @@
 #include <string>
 
 namespace Token {
-enum TokenType {
+    enum TokenType {
         Illegal,
         Eof,
 
@@ -71,6 +71,11 @@ enum TokenType {
     struct Token {
         TokenType tokenType;
         std::string tokenLiteral;
+
+        Token() = default;
+
+        Token(TokenType t, std::string lit)
+                : tokenType(t), tokenLiteral(std::move(lit)) {}
     };
 }
 

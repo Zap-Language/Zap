@@ -5,6 +5,8 @@
 
 #include "Ast.h"
 #include "Identifier.h"
+#include "ArgumentList.h"
+#include "BlockStatement.h"
 #include "lexer/Token.h"
 
 namespace ast {

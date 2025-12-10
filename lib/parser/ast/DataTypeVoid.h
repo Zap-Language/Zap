@@ -24,7 +24,7 @@ namespace ast {
         return {};
     }
 
-    const auto VOID = std::shared_ptr<DataTypeVoid>();
+    const auto VOID = std::make_shared<DataTypeVoid>();
 }
 
 #endif //ZAP_DATATYPEVOID_H

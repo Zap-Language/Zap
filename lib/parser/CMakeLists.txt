@@ -9,6 +9,7 @@ FetchContent_MakeAvailable(magic_enum)
 
 add_library(parser STATIC
         parser.cpp
+        SemanticAnalyzer.cpp
         ast/Program.h
         ast/LetStatement.h
         ast/Identifier.h
@@ -36,6 +37,8 @@ add_library(parser STATIC
         ast/CharLiteral.h
         ast/ReturnStatement.h
         ast/CallExpression.h
+        ast/symbols/Scope.cpp
+        ast/symbols/SymbolTable.cpp
 )
 
 target_link_libraries(parser
