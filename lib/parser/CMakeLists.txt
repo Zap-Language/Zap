@@ -37,6 +37,11 @@ add_library(parser STATIC
         ast/CharLiteral.h
         ast/ReturnStatement.h
         ast/CallExpression.h
+        ast/IfStatement.h
+        ast/ElseStatement.h
+        ast/WhileStatement.h
+        ast/ForStatement.h
+        ast/ExpressionStatement.h
         ast/symbols/Scope.cpp
         ast/symbols/SymbolTable.cpp
 )

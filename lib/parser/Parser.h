@@ -8,14 +8,19 @@
 #include "ast/BoolLiteral.h"
 #include "ast/CallExpression.h"
 #include "ast/CharLiteral.h"
+#include "ast/ElseStatement.h"
+#include "ast/ExpressionStatement.h"
 #include "ast/FloatLiteral.h"
+#include "ast/ForStatement.h"
 #include "ast/FuncExpression.h"
 #include "ast/FuncStatement.h"
+#include "ast/IfStatement.h"
 #include "ast/IntLiteral.h"
 #include "ast/LetStatement.h"
 #include "ast/Program.h"
 #include "ast/ReturnStatement.h"
 #include "ast/StringLiteral.h"
+#include "ast/WhileStatement.h"
 
 namespace ast {
     enum Precedence {
@@ -43,6 +48,14 @@ namespace ast {
         std::shared_ptr<FuncStatement> ParseFuncStatement();
         std::shared_ptr<BlockStatement> ParseBlockStatement();
         std::shared_ptr<ReturnStatement> ParseReturnStatement();
+        std::shared_ptr<IfStatement> ParseIfStatement();
+        std::shared_ptr<ElseStatement> ParseElseStatement();
+        std::shared_ptr<ExpressionStatement> ParseExpressionStatement();
+
+        std::shared_ptr<WhileStatement> ParseWhileStatement();
+
+        std::shared_ptr<ForStatement> ParseForStatement();
+
         std::shared_ptr<ArgumentList> ParseArgumentList();
 
         std::shared_ptr<Identifier> ParseIdentifier(std::shared_ptr<DataType> dataType) const;

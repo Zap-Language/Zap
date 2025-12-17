@@ -11,11 +11,15 @@
 #include "ast/DataTypeInt.h"
 #include "ast/DataTypeString.h"
 #include "ast/DataTypeVoid.h"
+#include "ast/ForStatement.h"
 #include "ast/InfixExpression.h"
 #include "ast/IntLiteral.h"
 #include "ast/PrefixExpression.h"
+#include "ast/WhileStatement.h"
 
 namespace ast {
+    struct ForStatement;
+
     Parser::Parser(Lexer lexer) : _lexer(std::move(lexer)) {
         // Prefix parsers preparation
         _prefixParseFunction.emplace(Token::Integer, [this] { return ParseIntegerLiteral(); });
@@ -101,10 +105,16 @@ namespace ast {
                 return ParseReturnStatement();
             case Token::NewLine:
                 return nullptr;
+            case Token::If:
+                return ParseIfStatement();
+            case Token::For:
+                return ParseForStatement();
+            case Token::While:
+                return ParseWhileStatement();
+            case Token::LBrace:
+                return ParseBlockStatement();
             default:
-                auto tokenName =  magic_enum::enum_name(_currentToken.tokenType);
-                _errors.emplace_back("unknown token type: " + std::string(tokenName));
-                return nullptr;
+                return ParseExpressionStatement();
         }
     }
 
@@ -261,12 +271,130 @@ namespace ast {
         auto returnStatement = std::make_shared<ReturnStatement>();
         returnStatement->token = _currentToken;
         NextToken();
+        if (CurrentTokenIs(Token::NewLine)) {
+            return returnStatement;
+        }
+
         returnStatement->expression = ParseExpression(LOWEST);
         if (returnStatement->expression == nullptr) {
             return nullptr;
         }
 
         return returnStatement;
+    }
+
+    std::shared_ptr<IfStatement> Parser::ParseIfStatement() {
+        auto stmt = std::make_shared<IfStatement>();
+        stmt->token = _currentToken;
+
+        if (!ExpectPeek(Token::LParen)) {
+            return nullptr;
+        }
+
+        NextToken();
+        stmt->condition = ParseExpression(LOWEST);
+        if (stmt->condition == nullptr) {
+            return nullptr;
+        }
+
+        if (!ExpectPeek(Token::RParen)) {
+            return nullptr;
+        }
+
+        stmt->thenStatement = ParseStatement();
+        if (stmt->thenStatement == nullptr) {
+            return nullptr;
+        }
+
+        if (CurrentTokenIs(Token::Else)) {
+            stmt->elseStatement = ParseElseStatement();
+        }
+
+        return stmt;
+    }
+
+    std::shared_ptr<ElseStatement> Parser::ParseElseStatement() {
+        auto stmt = std::make_shared<ElseStatement>();
+        stmt->token = _currentToken;
+        NextToken();
+        stmt->stmt = ParseStatement();
+        if (stmt->stmt == nullptr) {
+            return nullptr;
+        }
+
+        return stmt;
+    }
+
+    std::shared_ptr<ExpressionStatement> Parser::ParseExpressionStatement() {
+        auto stmt = std::make_shared<ExpressionStatement>();
+        stmt->token = _currentToken;
+        stmt->expression = ParseExpression(LOWEST);
+        if (stmt->expression == nullptr) {
+            return nullptr;
+        }
+
+        return stmt;
+    }
+
+    std::shared_ptr<WhileStatement> Parser::ParseWhileStatement() {
+        auto stmt = std::make_shared<WhileStatement>();
+        stmt->token = _currentToken;
+        if (!ExpectPeek(Token::LParen)) {
+            return nullptr;
+        }
+
+        NextToken();
+        stmt->condition = ParseExpression(LOWEST);
+        if (stmt->condition == nullptr) {
+            return nullptr;
+        }
+
+        if (!ExpectPeek(Token::RParen)) {
+            return nullptr;
+        }
+
+        NextToken();
+        stmt->stmt = ParseStatement();
+        if (stmt->stmt == nullptr) {
+            return nullptr;
+        }
+
+        return stmt;
+    }
+
+    std::shared_ptr<ForStatement> Parser::ParseForStatement() {
+        auto stmt = std::make_shared<ForStatement>();
+        stmt->token = _currentToken;
+        if (!ExpectPeek(Token::LParen)) {
+            return nullptr;
+        }
+
+        NextToken();
+        if (CurrentTokenIs(Token::Let)) {
+            stmt->letStatement = ParseLetStatement();
+        }
+
+        if (!CurrentTokenIs(Token::Semicolon)) {
+            return nullptr;
+        }
+
+        NextToken();
+        stmt->condition = ParseExpression(LOWEST);
+        if (stmt->condition == nullptr) {
+            return nullptr;
+        }
+
+        if (!ExpectPeek(Token::Semicolon)) {
+            return nullptr;
+        }
+
+        NextToken();
+        stmt->stmt = ParseStatement();
+        if (!ExpectPeek(Token::RParen)) {
+            return nullptr;
+        }
+
+        return stmt;
     }
 
     std::shared_ptr<ArgumentList> Parser::ParseArgumentList() {
@@ -305,7 +433,7 @@ namespace ast {
 
     std::shared_ptr<ExpressionNode> Parser::ParseExpression(const Precedence precedence) {
         if (!_prefixParseFunction.contains(_currentToken.tokenType)) {
-            _errors.emplace_back("function expected for " + _currentToken.tokenLiteral);
+            _errors.emplace_back("function expected for " + std::string(magic_enum::enum_name(_currentToken.tokenType)));
             return nullptr;
         }
 
