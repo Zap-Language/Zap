@@ -301,11 +301,13 @@ namespace ast {
             return nullptr;
         }
 
+        NextToken();
         stmt->thenStatement = ParseStatement();
         if (stmt->thenStatement == nullptr) {
             return nullptr;
         }
 
+        NextToken();
         if (CurrentTokenIs(Token::Else)) {
             stmt->elseStatement = ParseElseStatement();
         }
