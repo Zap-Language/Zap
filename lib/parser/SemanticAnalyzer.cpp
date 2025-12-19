@@ -7,7 +7,6 @@
 #include "ast/DataTypeVoid.h"
 #include "ast/BlockStatement.h"
 #include <iostream>
-#include <sstream>
 
 namespace ast {
     SemanticAnalyzer::SemanticAnalyzer() = default;
@@ -72,6 +71,33 @@ namespace ast {
         }
         if (auto retStmt = std::dynamic_pointer_cast<ReturnStatement>(stmt)) {
             return AnalyzeReturnStatement(retStmt);
+        }
+        if (auto assignStmt = std::dynamic_pointer_cast<AssignStatement>(stmt)) {
+            return AnalyzeAssignStatement(assignStmt);
+        }
+        if (auto ifStmt = std::dynamic_pointer_cast<IfStatement>(stmt)) {
+            return AnalyzeIfStatement(ifStmt);
+        }
+        if (auto whileStmt = std::dynamic_pointer_cast<WhileStatement>(stmt)) {
+            return AnalyzeWhileStatement(whileStmt);
+        }
+        if (auto forStmt = std::dynamic_pointer_cast<ForStatement>(stmt)) {
+            return AnalyzeForStatement(forStmt);
+        }
+        if (auto exprStmt = std::dynamic_pointer_cast<ExpressionStatement>(stmt)) {
+            return AnalyzeExpressionStatement(exprStmt);
+        }
+        if (auto blockStmt = std::dynamic_pointer_cast<BlockStatement>(stmt)) {
+            bool success = true;
+            symbolTable.EnterScope();
+            for (const auto& s : blockStmt->statements) {
+                success &= AnalyzeStatement(s);
+            }
+            symbolTable.ExitScope();
+            return success;
+        }
+        if (auto elseStmt = std::dynamic_pointer_cast<ElseStatement>(stmt)) {
+            return AnalyzeStatement(elseStmt->stmt);
         }
 
         AddError("Unknown statement type");
@@ -476,5 +502,203 @@ namespace ast {
 
     void SemanticAnalyzer::AddError(const std::string& message, const std::string& location) const {
         errors.emplace_back(message, location);
+    }
+
+    bool SemanticAnalyzer::AnalyzeIfStatement(const std::shared_ptr<IfStatement>& ifStmt) {
+        if (!ifStmt) {
+            AddError("If statement is null");
+            return false;
+        }
+
+        bool success = true;
+
+        if (ifStmt->condition) {
+            auto conditionType = AnalyzeExpression(ifStmt->condition);
+            if (!conditionType) {
+                AddError("Could not determine type of if condition");
+                success = false;
+            } else if (conditionType->Type() != TypeDataType::Bool) {
+                AddError("If condition must be boolean, got " + conditionType->String());
+                success = false;
+            }
+        } else {
+            AddError("If statement missing condition");
+            success = false;
+        }
+
+        if (ifStmt->thenStatement) {
+            if (auto blockStmt = std::dynamic_pointer_cast<BlockStatement>(ifStmt->thenStatement)) {
+                symbolTable.EnterScope();
+                for (const auto& stmt : blockStmt->statements) {
+                    success &= AnalyzeStatement(stmt);
+                }
+                symbolTable.ExitScope();
+            } else {
+                success &= AnalyzeStatement(ifStmt->thenStatement);
+            }
+        }
+
+        if (ifStmt->elseStatement) {
+            if (auto blockStmt = std::dynamic_pointer_cast<BlockStatement>(ifStmt->elseStatement)) {
+                symbolTable.EnterScope();
+                for (const auto& stmt : blockStmt->statements) {
+                    success &= AnalyzeStatement(stmt);
+                }
+                symbolTable.ExitScope();
+            } else if (auto nestedIfStmt = std::dynamic_pointer_cast<IfStatement>(ifStmt->elseStatement)) {
+                success &= AnalyzeIfStatement(nestedIfStmt);
+            } else {
+                success &= AnalyzeStatement(ifStmt->elseStatement);
+            }
+        }
+
+        return success;
+    }
+
+    bool SemanticAnalyzer::AnalyzeWhileStatement(const std::shared_ptr<WhileStatement>& whileStmt) {
+        if (!whileStmt) {
+            AddError("While statement is null");
+            return false;
+        }
+
+        bool success = true;
+
+        if (whileStmt->condition) {
+            auto conditionType = AnalyzeExpression(whileStmt->condition);
+            if (!conditionType) {
+                AddError("Could not determine type of while condition");
+                success = false;
+            } else if (conditionType->Type() != TypeDataType::Bool) {
+                AddError("While condition must be boolean, got " + conditionType->String());
+                success = false;
+            }
+        } else {
+            AddError("While statement missing condition");
+            success = false;
+        }
+
+        if (whileStmt->stmt) {
+            if (auto blockStmt = std::dynamic_pointer_cast<BlockStatement>(whileStmt->stmt)) {
+                symbolTable.EnterScope();
+                for (const auto& stmt : blockStmt->statements) {
+                    success &= AnalyzeStatement(stmt);
+                }
+                symbolTable.ExitScope();
+            } else {
+                success &= AnalyzeStatement(whileStmt->stmt);
+            }
+        }
+
+        return success;
+    }
+
+    bool SemanticAnalyzer::AnalyzeForStatement(const std::shared_ptr<ForStatement>& forStmt) {
+        if (!forStmt) {
+            AddError("For statement is null");
+            return false;
+        }
+
+        bool success = true;
+
+        symbolTable.EnterScope();
+
+        if (forStmt->letStatement) {
+            success &= AnalyzeLetStatement(forStmt->letStatement);
+        } else {
+            AddError("For statement missing initialization");
+            success = false;
+        }
+
+        if (forStmt->condition) {
+            auto conditionType = AnalyzeExpression(forStmt->condition);
+            if (!conditionType) {
+                AddError("Could not determine type of for condition");
+                success = false;
+            } else if (conditionType->Type() != TypeDataType::Bool) {
+                AddError("For condition must be boolean, got " + conditionType->String());
+                success = false;
+            }
+        } else {
+            AddError("For statement missing condition");
+            success = false;
+        }
+
+        if (forStmt->postStatement) {
+            success &= AnalyzeStatement(forStmt->postStatement);
+        } else {
+            AddError("For statement missing post-statement");
+            success = false;
+        }
+
+        if (forStmt->stmt) {
+            if (auto blockStmt = std::dynamic_pointer_cast<BlockStatement>(forStmt->stmt)) {
+                for (const auto& s : blockStmt->statements) {
+                    success &= AnalyzeStatement(s);
+                }
+            } else {
+                success &= AnalyzeStatement(forStmt->stmt);
+            }
+        }
+
+        symbolTable.ExitScope();
+
+        return success;
+    }
+
+    bool SemanticAnalyzer::AnalyzeExpressionStatement(const std::shared_ptr<ExpressionStatement>& exprStmt) {
+        if (!exprStmt) {
+            AddError("Expression statement is null");
+            return false;
+        }
+
+        if (!exprStmt->expression) {
+            AddError("Expression statement has no expression");
+            return false;
+        }
+
+        auto exprType = AnalyzeExpression(exprStmt->expression);
+        if (!exprType) {
+            AddError("Could not determine type of expression in expression statement");
+            return false;
+        }
+
+        return true;
+    }
+
+    bool SemanticAnalyzer::AnalyzeAssignStatement(const std::shared_ptr<AssignStatement>& assign) {
+        if (!assign) {
+            AddError("Assign statement is null");
+            return false;
+        }
+
+        if (!assign->identifier) {
+            AddError("Assign statement has no identifier");
+            return false;
+        }
+
+        if (!assign->expression) {
+            AddError("Assign statement has no expression");
+            return false;
+        }
+
+        auto varType = symbolTable.LookupVariable(assign->identifier->TokenLiteral());
+        if (!varType) {
+            AddError("Cannot assign to undeclared variable '" + assign->identifier->TokenLiteral() + "'");
+            return false;
+        }
+
+        auto exprType = AnalyzeExpression(assign->expression);
+        if (!exprType) {
+            AddError("Could not determine type of expression in assignment");
+            return false;
+        }
+
+        if (!TypesCompatible(varType, exprType)) {
+            AddError("Type mismatch in assignment: variable '" + assign->identifier->TokenLiteral() +
+                     "' has type " + varType->String() + " but assigned " + exprType->String());
+            return false;
+        }
+
+        return true;
     }
 }

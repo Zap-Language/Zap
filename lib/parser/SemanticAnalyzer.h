@@ -8,6 +8,13 @@
 #include "ast/FuncStatement.h"
 #include "ast/LetStatement.h"
 #include "ast/ReturnStatement.h"
+#include "ast/AssignStatement.h"
+#include "ast/IfStatement.h"
+#include "ast/ElseStatement.h"
+#include "ast/WhileStatement.h"
+#include "ast/ForStatement.h"
+#include "ast/ExpressionStatement.h"
+#include "ast/BlockStatement.h"
 #include "ast/CallExpression.h"
 #include "ast/InfixExpression.h"
 #include "ast/PrefixExpression.h"
@@ -49,6 +56,11 @@ namespace ast {
         bool AnalyzeFuncStatement(const std::shared_ptr<FuncStatement>& func);
         bool AnalyzeLetStatement(const std::shared_ptr<LetStatement>& let);
         bool AnalyzeReturnStatement(const std::shared_ptr<ReturnStatement>& ret);
+        bool AnalyzeAssignStatement(const std::shared_ptr<AssignStatement>& assign);
+        bool AnalyzeIfStatement(const std::shared_ptr<IfStatement>& ifStmt);
+        bool AnalyzeWhileStatement(const std::shared_ptr<WhileStatement>& whileStmt);
+        bool AnalyzeForStatement(const std::shared_ptr<ForStatement>& forStmt);
+        bool AnalyzeExpressionStatement(const std::shared_ptr<ExpressionStatement>& exprStmt);
 
         std::shared_ptr<DataType> AnalyzeExpression(const std::shared_ptr<ExpressionNode>& expr);
         std::shared_ptr<DataType> AnalyzeCallExpression(const std::shared_ptr<CallExpression>& call);
