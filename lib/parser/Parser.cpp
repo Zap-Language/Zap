@@ -413,10 +413,13 @@ namespace ast {
         }
 
         NextToken();
-        stmt->stmt = ParseStatement();
+        stmt->postStatement = ParseStatement();
         if (!ExpectPeek(Token::RParen)) {
             return nullptr;
         }
+
+        NextToken();
+        stmt->stmt = ParseStatement();
 
         return stmt;
     }

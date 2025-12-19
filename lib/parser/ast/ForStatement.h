@@ -18,7 +18,7 @@ namespace ast {
         Token::Token token;
         std::shared_ptr<LetStatement> letStatement;
         std::shared_ptr<ExpressionNode> condition;
-        std::shared_ptr<ExpressionNode> postExpression;
+        std::shared_ptr<StatementNode> postStatement;
         std::shared_ptr<StatementNode> stmt;
     };
 
@@ -29,7 +29,7 @@ namespace ast {
         result += "; ";
         result += trim(condition->String());
         result += "; ";
-        result += trim(postExpression->String());
+        result += trim(postStatement->String());
         result += ") ";
         result += stmt->String();
 
