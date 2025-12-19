@@ -114,6 +114,9 @@ namespace ast {
             case Token::LBrace:
                 return ParseBlockStatement();
             default:
+                if (PeekTokenIs(Token::Assign)) {
+                    return ParseAssignStatement();
+                }
                 return ParseExpressionStatement();
         }
     }
@@ -327,6 +330,24 @@ namespace ast {
         return stmt;
     }
 
+    std::shared_ptr<AssignStatement> Parser::ParseAssignStatement() {
+        auto stmt = std::make_shared<AssignStatement>();
+        stmt->identifier = ParseIdentifier(nullptr);
+        if (stmt->identifier == nullptr) {
+            return nullptr;
+        }
+
+        NextToken();
+        stmt->token = _currentToken;
+        NextToken();
+        stmt->expression = ParseExpression(LOWEST);
+        if (stmt->expression == nullptr) {
+            return nullptr;
+        }
+
+        return stmt;
+    }
+
     std::shared_ptr<ExpressionStatement> Parser::ParseExpressionStatement() {
         auto stmt = std::make_shared<ExpressionStatement>();
         stmt->token = _currentToken;
@@ -376,6 +397,7 @@ namespace ast {
             stmt->letStatement = ParseLetStatement();
         }
 
+        NextToken();
         if (!CurrentTokenIs(Token::Semicolon)) {
             return nullptr;
         }

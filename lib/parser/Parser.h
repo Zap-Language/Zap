@@ -4,6 +4,7 @@
 #include <lexer/lexer.h>
 
 #include "ast/ArgumentList.h"
+#include "ast/AssignStatement.h"
 #include "ast/BlockStatement.h"
 #include "ast/BoolLiteral.h"
 #include "ast/CallExpression.h"
@@ -50,6 +51,7 @@ namespace ast {
         std::shared_ptr<ReturnStatement> ParseReturnStatement();
         std::shared_ptr<IfStatement> ParseIfStatement();
         std::shared_ptr<ElseStatement> ParseElseStatement();
+        std::shared_ptr<AssignStatement> ParseAssignStatement();
         std::shared_ptr<ExpressionStatement> ParseExpressionStatement();
 
         std::shared_ptr<WhileStatement> ParseWhileStatement();

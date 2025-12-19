@@ -44,6 +44,7 @@ add_library(parser STATIC
         ast/ExpressionStatement.h
         ast/symbols/Scope.cpp
         ast/symbols/SymbolTable.cpp
+        ast/AssignStatement.h
 )
 
 target_link_libraries(parser
