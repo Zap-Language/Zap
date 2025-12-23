@@ -15,9 +15,15 @@
 #include <unordered_set>
 
 #include "bytecode_chunk.h"
+#include "parser/ast/AssignStatement.h"
+#include "parser/ast/ElseStatement.h"
+#include "parser/ast/ExpressionStatement.h"
+#include "parser/ast/ForStatement.h"
 #include "parser/ast/FuncStatement.h"
+#include "parser/ast/IfStatement.h"
 #include "parser/ast/ReturnStatement.h"
 #include "parser/ast/program.h"
+#include "parser/ast/WhileStatement.h"
 
 namespace bytecode {
 
@@ -47,24 +53,27 @@ void Compiler::CompileStatement(const ast::StatementNode& stmt) {
     if (auto* let = dynamic_cast<const ast::LetStatement*>(&stmt)) {
         CompileLetStatement(*let);
     }
-    // else if (auto* assign = dynamic_cast<const ast::AssignStatement*>(&stmt)) {
-        // CompileAssignStatement(*assign);
-    // }
-    // else if (auto* exprStmt = dynamic_cast<const ast::ExpressionStatement*>(&stmt)) {
-        // CompileExpressionStatement(*exprStmt);
-    // }
+    else if (auto* assign = dynamic_cast<const ast::AssignStatement*>(&stmt)) {
+        CompileAssignStatement(*assign);
+    }
+    else if (auto* exprStmt = dynamic_cast<const ast::ExpressionStatement*>(&stmt)) {
+        CompileExpression(*exprStmt->expression);
+    }
     else if (auto* block = dynamic_cast<const ast::BlockStatement*>(&stmt)) {
         CompileBlockStatement(*block);
     }
-    // else if (auto* ifStmt = dynamic_cast<const ast::IfStatement*>(&stmt)) {
-        // CompileIfStatement(*ifStmt);
-    // }
-    // else if (auto* whileStmt = dynamic_cast<const ast::WhileStatement*>(&stmt)) {
-        // CompileWhileStatement(*whileStmt);
-    // }
-    // else if (auto* forStmt = dynamic_cast<const ast::ForStatement*>(&stmt)) {
-        // CompileForStatement(*forStmt);
-    // }
+    else if (auto* ifStmt = dynamic_cast<const ast::IfStatement*>(&stmt)) {
+        CompileIfStatement(*ifStmt);
+    }
+    else if (auto* elseStmt = dynamic_cast<const ast::ElseStatement*>(&stmt)) {
+        CompileElseStatement(*elseStmt);
+    }
+    else if (auto* whileStmt = dynamic_cast<const ast::WhileStatement*>(&stmt)) {
+        CompileWhileStatement(*whileStmt);
+    }
+    else if (auto* forStmt = dynamic_cast<const ast::ForStatement*>(&stmt)) {
+        CompileForStatement(*forStmt);
+    }
     else if (auto* funcStmt = dynamic_cast<const ast::FuncStatement*>(&stmt)) {
         CompileFuncStatement(*funcStmt);
     }
@@ -93,11 +102,13 @@ void Compiler::CompileLetStatement(const ast::LetStatement& stmt) {
     }
 }
 
-// void Compiler::CompileAssignStatement(const ast::AssignStatement& stmt) {
-//     CompileExpression(*stmt.value);
-//
-//     EmitStore(stmt.name->value);
-// }
+    void Compiler::CompileAssignStatement(const ast::AssignStatement& stmt) {
+    CompileExpression(*stmt.expression);
+
+    std::string varName = stmt.identifier->TokenLiteral();
+
+    EmitStore(varName);
+}
 
 void Compiler::CompileBlockStatement(const ast::BlockStatement& stmt) {
     BeginScope();
@@ -109,143 +120,139 @@ void Compiler::CompileBlockStatement(const ast::BlockStatement& stmt) {
     EndScope();
 }
 
-// void Compiler::CompileIfStatement(const ast::IfStatement& stmt) {
-//     /*
-//      * if condition {
-//      *     consequence
-//      * } else if condition2 {
-//      *     consequence2
-//      * } else {
-//      *     alternative
-//      * }
-//      *
-//      * Генерируем:
-//      *     <condition>
-//      *     JMP_IF_FALSE else_branch
-//      *     <consequence>
-//      *     JMP end
-//      * else_branch:
-//      *     [else-if или else блоки]
-//      * end:
-//      */
-//
-//     std::vector<size_t> endJumps;
-//
-//     CompileExpression(*stmt.condition);
-//     size_t jumpIfFalse = EmitJump(OpCode::JMP_IF_FALSE);
-//
-//     CompileBlockStatement(*stmt.consequence);
-//     endJumps.push_back(EmitJump(OpCode::JMP));
-//
-//     PatchJump(jumpIfFalse);
-//
-//     for (const auto& elseIf : stmt.elseIfBranches) {
-//         CompileExpression(*elseIf.condition);
-//         size_t elseIfJump = EmitJump(OpCode::JMP_IF_FALSE);
-//
-//         CompileBlockStatement(*elseIf.consequence);
-//         endJumps.push_back(EmitJump(OpCode::JMP));
-//
-//         PatchJump(elseIfJump);
-//     }
-//
-//     if (stmt.alternative) {
-//         CompileBlockStatement(*stmt.alternative);
-//     }
-//
-//     for (size_t jump : endJumps) {
-//         PatchJump(jump);
-//     }
-// }
-//
-// void Compiler::CompileWhileStatement(const ast::WhileStatement& stmt) {
-//     /*
-//      * while condition {
-//      *     body
-//      * }
-//      *
-//      * Генерируем:
-//      * loop_start:
-//      *     <condition>
-//      *     JMP_IF_FALSE loop_end
-//      *     <body>
-//      *     JMP loop_start
-//      * loop_end:
-//      */
-//
-//     size_t loopStart = _chunk->CurrentOffset();
-//
-//     _loopStack.push({loopStart, {}});
-//
-//     CompileExpression(*stmt.condition);
-//     size_t exitJump = EmitJump(OpCode::JMP_IF_FALSE);
-//
-//     CompileBlockStatement(*stmt.body);
-//
-//     EmitLoop(loopStart);
-//
-//     PatchJump(exitJump);
-//
-//     LoopContext& loop = _loopStack.top();
-//     for (size_t breakPatch : loop.breakPatches) {
-//         PatchJump(breakPatch);
-//     }
-//
-//     _loopStack.pop();
-// }
-//
-// void Compiler::CompileForStatement(const ast::ForStatement& stmt) {
-//     /*
-//      * for init; condition; update {
-//      *     body
-//      * }
-//      *
-//      * {
-//      *     init
-//      *     while condition {
-//      *         body
-//      *         update
-//      *     }
-//      * }
-//      */
-//
-//     BeginScope();
-//
-//     if (stmt.init) {
-//         CompileStatement(*stmt.init);
-//     }
-//
-//     size_t loopStart = _chunk->CurrentOffset();
-//
-//     _loopStack.push({0, {}});
-//
-//     size_t exitJump = 0;
-//     if (stmt.condition) {
-//         CompileExpression(*stmt.condition);
-//         exitJump = EmitJump(OpCode::JMP_IF_FALSE);
-//     }
-//
-//     CompileBlockStatement(*stmt.body);
-//
-//     _loopStack.top().continueTarget = _chunk->CurrentOffset();
-//
-//     if (stmt.update) {
-//         CompileStatement(*stmt.update);
-//     }
-//
-//     EmitLoop(loopStart);
-//
-//     if (stmt.condition) {
-//         PatchJump(exitJump);
-//     }
-//
-//     for (size_t breakPatch : _loopStack.top().breakPatches) {
-//         PatchJump(breakPatch);
-//     }
-//
-//     _loopStack.pop();
-//     EndScope();
-// }
+    void Compiler::CompileIfStatement(const ast::IfStatement& stmt) {
+    /*
+     * if condition {
+     *     then-block
+     * } else {
+     *     else-block (может быть вложенным IfStatement для else-if)
+     * }
+     *
+     * Генерируем:
+     *     <condition>
+     *     JMP_IF_FALSE else_label
+     *     <then-block>
+     *     JMP end
+     * else_label:
+     *     [else-block]
+     * end:
+     */
+
+    CompileExpression(*stmt.condition);
+
+    size_t jumpIfFalse = EmitJump(OpCode::JMP_IF_FALSE);
+
+    CompileStatement(*stmt.thenStatement);
+
+    if (stmt.elseStatement) {
+        size_t jumpEnd = EmitJump(OpCode::JMP);
+
+        PatchJump(jumpIfFalse);
+
+        CompileStatement(*stmt.elseStatement);
+
+        PatchJump(jumpEnd);
+    } else {
+        PatchJump(jumpIfFalse);
+    }
+}
+
+void Compiler::CompileElseStatement(const ast::ElseStatement& stmt) {
+    if (stmt.stmt) {
+        CompileStatement(*stmt.stmt);
+    }
+}
+void Compiler::CompileWhileStatement(const ast::WhileStatement& stmt) {
+    /*
+     * while condition {
+     *     body
+     * }
+     *
+     * Генерируем:
+     * loop_start:
+     *     <condition>
+     *     JMP_IF_FALSE loop_end
+     *     <body>
+     *     JMP loop_start
+     * loop_end:
+     */
+
+    size_t loopStart = _chunk->CurrentOffset();
+
+    _loopStack.push({loopStart, {}});
+
+    CompileExpression(*stmt.condition);
+
+    size_t exitJump = EmitJump(OpCode::JMP_IF_FALSE);
+
+    CompileStatement(*stmt.stmt);
+
+    EmitLoop(loopStart);
+
+    PatchJump(exitJump);
+
+    LoopContext& loop = _loopStack.top();
+    for (size_t breakPatch : loop.breakPatches) {
+        PatchJump(breakPatch);
+    }
+
+    _loopStack.pop();
+}
+
+void Compiler::CompileForStatement(const ast::ForStatement& stmt) {
+    /*
+     * for letStatement; condition; postStatement {
+     *     body
+     * }
+     *
+     * Эквивалентно:
+     * {
+     *     letStatement
+     *     while condition {
+     *         body
+     *         postStatement
+     *     }
+     * }
+     */
+
+    BeginScope();
+
+    if (stmt.letStatement) {
+        CompileLetStatement(*stmt.letStatement);
+    }
+
+    size_t loopStart = _chunk->CurrentOffset();
+
+    _loopStack.push({0, {}});
+
+    size_t exitJump = 0;
+    if (stmt.condition) {
+        CompileExpression(*stmt.condition);
+        exitJump = EmitJump(OpCode::JMP_IF_FALSE);
+    }
+
+    CompileStatement(*stmt.stmt);
+
+    _loopStack.top().continueTarget = _chunk->CurrentOffset();
+
+    if (stmt.postStatement) {
+        CompileStatement(*stmt.postStatement);
+    }
+
+    EmitLoop(loopStart);
+
+    if (stmt.condition) {
+        PatchJump(exitJump);
+    }
+
+    for (size_t breakPatch : _loopStack.top().breakPatches) {
+        PatchJump(breakPatch);
+    }
+
+    _loopStack.pop();
+
+    EndScope();
+}
 
 void Compiler::CompileFuncStatement(const ast::FuncStatement& stmt) {
     const std::string& funcName = trim(stmt.name->String());

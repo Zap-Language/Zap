@@ -15,14 +15,18 @@
 
 #include "opcodes.h"
 #include "value_type.h"
+#include "parser/ast/AssignStatement.h"
 #include "parser/ast/BoolLiteral.h"
 #include "parser/ast/CallExpression.h"
 #include "parser/ast/CharLiteral.h"
 #include "parser/ast/DataType.h"
 #include "parser/ast/DataTypeArray.h"
+#include "parser/ast/ElseStatement.h"
 #include "parser/ast/FloatLiteral.h"
+#include "parser/ast/ForStatement.h"
 #include "parser/ast/funcExpression.h"
 #include "parser/ast/FuncStatement.h"
+#include "parser/ast/IfStatement.h"
 #include "parser/ast/InfixExpression.h"
 #include "parser/ast/IntLiteral.h"
 #include "parser/ast/LetStatement.h"
@@ -30,6 +34,7 @@
 #include "parser/ast/Program.h"
 #include "parser/ast/ReturnStatement.h"
 #include "parser/ast/StringLiteral.h"
+#include "parser/ast/WhileStatement.h"
 
 namespace bytecode {
 
@@ -72,8 +77,13 @@ private:
     uint32_t _scopeDepth;
     void CompileStatement(const ast::StatementNode& stmt);
     void CompileLetStatement(const ast::LetStatement& stmt);
+    void CompileAssignStatement(const ast::AssignStatement& stmt);
     void CompileBlockStatement(const ast::BlockStatement& stmt);
-   
+    void CompileIfStatement(const ast::IfStatement& stmt);
+    void CompileElseStatement(const ast::ElseStatement& stmt);
+    void CompileWhileStatement(const ast::WhileStatement& stmt);
+    void CompileForStatement(const ast::ForStatement& stmt);
+
     void CompileFuncStatement(const ast::FuncStatement& stmt);
     void CompileReturnStatement(const ast::ReturnStatement& stmt);
    
