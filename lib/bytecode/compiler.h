@@ -21,6 +21,8 @@
 #include "parser/ast/CharLiteral.h"
 #include "parser/ast/DataType.h"
 #include "parser/ast/DataTypeArray.h"
+#include "parser/ast/ArrayLiteral.h"
+#include "parser/ast/IndexExpression.h"
 #include "parser/ast/ElseStatement.h"
 #include "parser/ast/FloatLiteral.h"
 #include "parser/ast/ForStatement.h"
@@ -97,7 +99,8 @@ private:
     void CompilePrefixExpression(const ast::PrefixExpression& expr);
     void CompileInfixExpression(const ast::InfixExpression& expr);
     void CompileCallExpression(const ast::CallExpression& expr);
-    void CompileArrayLiteral(const ast::DataTypeArray& arr);
+    void CompileArrayLiteral(const ast::ArrayLiteral& arr);
+    void CompileIndexExpression(const ast::IndexExpression& expr);
    
     void CompileFuncExpression(const ast::FuncExpression& expr);
    

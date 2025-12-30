@@ -13,10 +13,12 @@ add_executable(${PROJECT_NAME} main.cpp
 add_subdirectory(lib/lexer)
 add_subdirectory(lib/parser)
 add_subdirectory(lib/bytecode)
+add_subdirectory(jit)
 
 target_link_libraries(${PROJECT_NAME}
         PRIVATE lexer
         PRIVATE parser
         PRIVATE bytecode
+        PRIVATE jit_lib
 )
 target_include_directories(${PROJECT_NAME} PRIVATE . ./lib)

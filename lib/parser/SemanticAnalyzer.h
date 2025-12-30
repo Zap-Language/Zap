@@ -24,6 +24,9 @@
 #include "ast/BoolLiteral.h"
 #include "ast/CharLiteral.h"
 #include "ast/StringLiteral.h"
+#include "ast/ArrayLiteral.h"
+#include "ast/IndexExpression.h"
+#include "ast/DataTypeArray.h"
 #include "ast/symbols/SymbolTable.h"
 
 namespace ast {
@@ -73,6 +76,8 @@ namespace ast {
         std::shared_ptr<DataType> AnalyzeBoolLiteral(const std::shared_ptr<BoolLiteral>& boolLit);
         std::shared_ptr<DataType> AnalyzeCharLiteral(const std::shared_ptr<CharLiteral>& charLit);
         std::shared_ptr<DataType> AnalyzeStringLiteral(const std::shared_ptr<StringLiteral>& stringLit);
+        std::shared_ptr<DataType> AnalyzeArrayLiteral(const std::shared_ptr<ArrayLiteral>& arrayLit);
+        std::shared_ptr<DataType> AnalyzeIndexExpression(const std::shared_ptr<IndexExpression>& indexExpr);
 
         bool TypesEqual(const std::shared_ptr<DataType>& a, const std::shared_ptr<DataType>& b) const;
         bool TypesCompatible(const std::shared_ptr<DataType>& expected, const std::shared_ptr<DataType>& actual) const;

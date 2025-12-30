@@ -31,6 +31,8 @@ add_library(parser STATIC
         ast/DataTypeChar.h
         ast/DataTypeString.h
         ast/DataTypeArray.h
+        ast/ArrayLiteral.h
+        ast/IndexExpression.h
         ast/BoolLiteral.h
         ast/FloatLiteral.h
         ast/StringLiteral.h

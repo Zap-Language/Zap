@@ -58,6 +58,7 @@ void Compiler::CompileStatement(const ast::StatementNode& stmt) {
     }
     else if (auto* exprStmt = dynamic_cast<const ast::ExpressionStatement*>(&stmt)) {
         CompileExpression(*exprStmt->expression);
+        _chunk->EmitOpCode(OpCode::POP);
     }
     else if (auto* block = dynamic_cast<const ast::BlockStatement*>(&stmt)) {
         CompileBlockStatement(*block);
@@ -102,12 +103,23 @@ void Compiler::CompileLetStatement(const ast::LetStatement& stmt) {
     }
 }
 
-    void Compiler::CompileAssignStatement(const ast::AssignStatement& stmt) {
-    CompileExpression(*stmt.expression);
+void Compiler::CompileAssignStatement(const ast::AssignStatement& stmt) {
+    if (auto* ident = dynamic_cast<ast::Identifier*>(stmt.target.get())) {
+        CompileExpression(*stmt.expression);
+        std::string varName = ident->TokenLiteral();
+        EmitStore(varName);
+        return;
+    }
 
-    std::string varName = stmt.identifier->TokenLiteral();
+    if (auto* indexExpr = dynamic_cast<ast::IndexExpression*>(stmt.target.get())) {
+        CompileExpression(*indexExpr->left);
+        CompileExpression(*indexExpr->index);
+        CompileExpression(*stmt.expression);
+        _chunk->EmitOpCode(OpCode::ARRAY_SET);
+        return;
+    }
 
-    EmitStore(varName);
+    throw CompilerError("Unsupported assignment target");
 }
 
 void Compiler::CompileBlockStatement(const ast::BlockStatement& stmt) {
@@ -354,12 +366,12 @@ void Compiler::CompileExpression(const ast::ExpressionNode& expr) {
     else if (auto* call = dynamic_cast<const ast::CallExpression*>(&expr)) {
         CompileCallExpression(*call);
     }
-    // else if (auto* arr = dynamic_cast<const ast::ArrayLiteral*>(&expr)) {
-    //     CompileArrayLiteral(*arr);
-    // }
-    // else if (auto* idx = dynamic_cast<const ast::IndexExpression*>(&expr)) {
-    //     CompileIndexExpression(*idx);
-    // }
+    else if (auto* arr = dynamic_cast<const ast::ArrayLiteral*>(&expr)) {
+        CompileArrayLiteral(*arr);
+    }
+    else if (auto* idx = dynamic_cast<const ast::IndexExpression*>(&expr)) {
+        CompileIndexExpression(*idx);
+    }
     else if (auto* funcExpr = dynamic_cast<const ast::FuncExpression*>(&expr)) {
         CompileFuncExpression(*funcExpr);
     }
@@ -513,26 +525,32 @@ void Compiler::CompileCallExpression(const ast::CallExpression& expr) {
     _chunk->EmitByte(argCount);
 }
 
-// void Compiler::CompileArrayLiteral(const ast::ArrayLiteral& arr) {
-//     for (const auto& elem : arr.elements) {
-//         CompileExpression(*elem);
-//     }
-//
-//     ValueType elemType = ValueType::INT;
-//     if (arr.elementType) {
-//         elemType = ConvertType(*arr.elementType);
-//     }
-//
-//     _chunk->EmitOpCode(OpCode::NEW_ARRAY);
-//     _chunk->EmitByte(static_cast<uint8_t>(elemType));
-//     _chunk->EmitUint32(static_cast<uint32_t>(arr.elements.size()));
-// }
+void Compiler::CompileArrayLiteral(const ast::ArrayLiteral& arr) {
+    ValueType elemType = ValueType::INT;
+    if (arr.elementType) {
+        elemType = ConvertType(*arr.elementType);
+    }
 
-// void Compiler::CompileIndexExpression(const ast::IndexExpression& expr) {
-//     CompileExpression(*expr.left);
-//     CompileExpression(*expr.index);
-//     _chunk->EmitOpCode(OpCode::ARRAY_GET);
-// }
+    const auto size = static_cast<uint32_t>(arr.elements.size());
+
+    _chunk->EmitOpCode(OpCode::NEW_ARRAY);
+    _chunk->EmitByte(static_cast<uint8_t>(elemType));
+    _chunk->EmitUint32(size);
+
+    for (uint32_t i = 0; i < size; ++i) {
+        _chunk->EmitOpCode(OpCode::DUP);
+        _chunk->EmitOpCode(OpCode::PUSH_INT);
+        _chunk->EmitInt64(i);
+        CompileExpression(*arr.elements[i]);
+        _chunk->EmitOpCode(OpCode::ARRAY_SET);
+    }
+}
+
+void Compiler::CompileIndexExpression(const ast::IndexExpression& expr) {
+    CompileExpression(*expr.left);
+    CompileExpression(*expr.index);
+    _chunk->EmitOpCode(OpCode::ARRAY_GET);
+}
 
 void Compiler::CompileFuncExpression(const ast::FuncExpression& expr) {
     static uint32_t lambdaCounter = 0;

@@ -104,7 +104,7 @@ inline size_t GetOperandSize(OpCode op) {
         case OpCode::JMP_IF_TRUE:   return 4;
         case OpCode::CALL:          return 5; 
         case OpCode::CALL_BUILTIN:  return 2; 
-        case OpCode::NEW_ARRAY:     return 5; 
+        case OpCode::NEW_ARRAY:     return 5;  // element type (1) + size (4)
         default:                    return 0;
     }
 }

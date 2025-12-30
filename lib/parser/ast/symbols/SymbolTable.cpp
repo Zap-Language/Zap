@@ -208,10 +208,10 @@ namespace ast {
         builtinFunctions = {
                 "print",
                 "len",
-                "read"
+                "read",
                 "int",
                 "float",
-                "string"
+                "string",
                 "bool",
                 "char"
         };

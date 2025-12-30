@@ -108,7 +108,10 @@ public:
     int64_t ReadInt64(size_t offset) const {
         int64_t value = 0;
         for (int i = 0; i < 8; ++i) {
-            value |= static_cast<int64_t>(_code[offset + i]) << (i * 8);
+            int64_t byte = (i == 7) 
+                ? static_cast<int8_t>(_code[offset + i])
+                : static_cast<int64_t>(_code[offset + i]);
+            value |= byte << (i * 8);
         }
         return value;
     }

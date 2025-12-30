@@ -228,6 +228,12 @@ namespace ast {
         if (auto stringLit = std::dynamic_pointer_cast<StringLiteral>(expr)) {
             return AnalyzeStringLiteral(stringLit);
         }
+        if (auto arrayLit = std::dynamic_pointer_cast<ArrayLiteral>(expr)) {
+            return AnalyzeArrayLiteral(arrayLit);
+        }
+        if (auto indexExpr = std::dynamic_pointer_cast<IndexExpression>(expr)) {
+            return AnalyzeIndexExpression(indexExpr);
+        }
         if (auto callExpr = std::dynamic_pointer_cast<CallExpression>(expr)) {
             return AnalyzeCallExpression(callExpr);
         }
@@ -366,9 +372,89 @@ namespace ast {
         return STRING;
     }
 
+    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeArrayLiteral(const std::shared_ptr<ArrayLiteral>& arrayLit) {
+        if (!arrayLit) {
+            return nullptr;
+        }
+
+        if (arrayLit->elements.empty()) {
+            if (arrayLit->elementType) {
+                return std::make_shared<DataTypeArray>(arrayLit->elementType);
+            }
+            AddError("Array literal cannot be empty without element type");
+            return nullptr;
+        }
+
+        auto firstType = AnalyzeExpression(arrayLit->elements.front());
+        if (!firstType) {
+            return nullptr;
+        }
+
+        // Validate declared element type if present
+        if (arrayLit->elementType && !TypesCompatible(arrayLit->elementType, firstType)) {
+            AddError("Array literal element does not match declared type " + arrayLit->elementType->String());
+            return nullptr;
+        }
+
+        for (size_t i = 1; i < arrayLit->elements.size(); ++i) {
+            auto elemType = AnalyzeExpression(arrayLit->elements[i]);
+            if (!elemType) {
+                return nullptr;
+            }
+            if (!TypesCompatible(firstType, elemType)) {
+                AddError("Array literal elements have incompatible types: " +
+                         firstType->String() + " and " + elemType->String());
+                return nullptr;
+            }
+        }
+
+        arrayLit->elementType = arrayLit->elementType ? arrayLit->elementType : firstType;
+        return std::make_shared<DataTypeArray>(arrayLit->elementType);
+    }
+
+    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeIndexExpression(const std::shared_ptr<IndexExpression>& indexExpr) {
+        if (!indexExpr) {
+            return nullptr;
+        }
+
+        auto arrayType = AnalyzeExpression(indexExpr->left);
+        auto idxType = AnalyzeExpression(indexExpr->index);
+
+        if (!arrayType || !idxType) {
+            return nullptr;
+        }
+
+        if (arrayType->Type() != TypeDataType::Array) {
+            AddError("Indexing requires array type");
+            return nullptr;
+        }
+
+        if (idxType->Type() != TypeDataType::Int) {
+            AddError("Array index must be int");
+            return nullptr;
+        }
+
+        auto* arrayDataType = dynamic_cast<DataTypeArray*>(arrayType.get());
+        if (!arrayDataType) {
+            AddError("Internal error: invalid array type");
+            return nullptr;
+        }
+
+        return arrayDataType->itemType;
+    }
+
     bool SemanticAnalyzer::TypesEqual(const std::shared_ptr<DataType>& a, const std::shared_ptr<DataType>& b) const {
         if (!a || !b) return false;
-        return a->Type() == b->Type();
+        if (a->Type() != b->Type()) return false;
+
+        if (a->Type() == TypeDataType::Array) {
+            auto* arrA = dynamic_cast<DataTypeArray*>(a.get());
+            auto* arrB = dynamic_cast<DataTypeArray*>(b.get());
+            if (!arrA || !arrB) return false;
+            return TypesEqual(arrA->itemType, arrB->itemType);
+        }
+
+        return true;
     }
 
     bool SemanticAnalyzer::TypesCompatible(const std::shared_ptr<DataType>& expected,
@@ -671,19 +757,13 @@ namespace ast {
             return false;
         }
 
-        if (!assign->identifier) {
-            AddError("Assign statement has no identifier");
+        if (!assign->target) {
+            AddError("Assign statement has no target");
             return false;
         }
 
         if (!assign->expression) {
             AddError("Assign statement has no expression");
-            return false;
-        }
-
-        auto varType = symbolTable.LookupVariable(assign->identifier->TokenLiteral());
-        if (!varType) {
-            AddError("Cannot assign to undeclared variable '" + assign->identifier->TokenLiteral() + "'");
             return false;
         }
 
@@ -693,12 +773,55 @@ namespace ast {
             return false;
         }
 
-        if (!TypesCompatible(varType, exprType)) {
-            AddError("Type mismatch in assignment: variable '" + assign->identifier->TokenLiteral() +
-                     "' has type " + varType->String() + " but assigned " + exprType->String());
-            return false;
+        // Target can be identifier or index expression
+        if (auto ident = std::dynamic_pointer_cast<Identifier>(assign->target)) {
+            auto varType = symbolTable.LookupVariable(ident->TokenLiteral());
+            if (!varType) {
+                AddError("Cannot assign to undeclared variable '" + ident->TokenLiteral() + "'");
+                return false;
+            }
+            if (!TypesCompatible(varType, exprType)) {
+                AddError("Type mismatch in assignment: variable '" + ident->TokenLiteral() +
+                         "' has type " + varType->String() + " but assigned " + exprType->String());
+                return false;
+            }
+            return true;
         }
 
-        return true;
+        if (auto indexExpr = std::dynamic_pointer_cast<IndexExpression>(assign->target)) {
+            auto arrayType = AnalyzeExpression(indexExpr->left);
+            auto idxType = AnalyzeExpression(indexExpr->index);
+
+            if (!arrayType || !idxType) {
+                return false;
+            }
+
+            if (arrayType->Type() != TypeDataType::Array) {
+                AddError("Index assignment requires array type");
+                return false;
+            }
+
+            if (idxType->Type() != TypeDataType::Int) {
+                AddError("Array index must be int");
+                return false;
+            }
+
+            auto* arrayDataType = dynamic_cast<DataTypeArray*>(arrayType.get());
+            if (!arrayDataType) {
+                AddError("Internal error: invalid array type");
+                return false;
+            }
+
+            if (!TypesCompatible(arrayDataType->itemType, exprType)) {
+                AddError("Type mismatch in array element assignment: expected " +
+                         arrayDataType->itemType->String() + " but got " + exprType->String());
+                return false;
+            }
+
+            return true;
+        }
+
+        AddError("Unsupported assignment target");
+        return false;
     }
 }

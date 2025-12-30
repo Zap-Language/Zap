@@ -4,6 +4,7 @@
 
 #include "Ast.h"
 #include "Identifier.h"
+#include "IndexExpression.h"
 #include "lexer/Token.h"
 
 namespace ast {
@@ -15,16 +16,20 @@ namespace ast {
         inline ~AssignStatement() override = default;
 
         Token::Token token;
-        std::shared_ptr<Identifier> identifier;
+        std::shared_ptr<ExpressionNode> target;   // Identifier or IndexExpression
         std::shared_ptr<ExpressionNode> expression;
     };
 
     inline std::string AssignStatement::String() {
         std::string result;
 
-        result += identifier->String();
-        result += "= ";
-        result += expression->String();
+        if (target) {
+            result += target->String();
+            result += "= ";
+        }
+        if (expression) {
+            result += expression->String();
+        }
 
         return result;
     }

@@ -16,11 +16,13 @@
 #include "ast/FuncExpression.h"
 #include "ast/FuncStatement.h"
 #include "ast/IfStatement.h"
+#include "ast/IndexExpression.h"
 #include "ast/IntLiteral.h"
 #include "ast/LetStatement.h"
 #include "ast/Program.h"
 #include "ast/ReturnStatement.h"
 #include "ast/StringLiteral.h"
+#include "ast/ArrayLiteral.h"
 #include "ast/WhileStatement.h"
 
 namespace ast {
@@ -66,6 +68,8 @@ namespace ast {
         std::shared_ptr<ExpressionNode> ParseInfixExpression(std::shared_ptr<ExpressionNode> leftExpression);
         std::shared_ptr<FuncExpression> ParseFuncExpression();
         std::shared_ptr<CallExpression> ParseCallExpression(std::shared_ptr<ExpressionNode> leftExpression);
+        std::shared_ptr<IndexExpression> ParseIndexExpression(std::shared_ptr<ExpressionNode> leftExpression);
+        std::shared_ptr<ArrayLiteral> ParseArrayLiteral();
         std::vector<std::shared_ptr<ExpressionNode>> ParseCallArguments();
 
         std::shared_ptr<DataType> ParseDataType();

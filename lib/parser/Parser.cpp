@@ -16,6 +16,8 @@
 #include "ast/IntLiteral.h"
 #include "ast/PrefixExpression.h"
 #include "ast/WhileStatement.h"
+#include "ast/ArrayLiteral.h"
+#include "ast/IndexExpression.h"
 
 namespace ast {
     struct ForStatement;
@@ -32,6 +34,11 @@ namespace ast {
         _prefixParseFunction.emplace(Token::Bang, [this] { return ParsePrefixExpression(); });
         _prefixParseFunction.emplace(Token::Minus, [this] { return ParsePrefixExpression(); });
         _prefixParseFunction.emplace(Token::Func, [this] { return ParseFuncExpression(); });
+        _prefixParseFunction.emplace(Token::LBracket, [this] { return ParseArrayLiteral(); });
+        // Built-in functions
+        _prefixParseFunction.emplace(Token::Print, [this] { return ParseIdentifier(nullptr); });
+        _prefixParseFunction.emplace(Token::Len, [this] { return ParseIdentifier(nullptr); });
+        _prefixParseFunction.emplace(Token::Read, [this] { return ParseIdentifier(nullptr); });
 
         // Infix parsers preparation
         _infixParseFunction.emplace(Token::Plus, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
@@ -46,6 +53,7 @@ namespace ast {
         _infixParseFunction.emplace(Token::Less, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
         _infixParseFunction.emplace(Token::Greater, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
         _infixParseFunction.emplace(Token::LParen, [this](const std::shared_ptr<ExpressionNode> &leftExpression) { return ParseCallExpression(leftExpression); });
+        _infixParseFunction.emplace(Token::LBracket, [this](const std::shared_ptr<ExpressionNode> &leftExpression) { return ParseIndexExpression(leftExpression); });
 
         _precedence.emplace(Token::Or, OR);
         _precedence.emplace(Token::And, AND);
@@ -114,8 +122,11 @@ namespace ast {
             case Token::LBrace:
                 return ParseBlockStatement();
             default:
-                if (PeekTokenIs(Token::Assign)) {
-                    return ParseAssignStatement();
+                // assignment: ident = ... or ident[...] = ...
+                if (CurrentTokenIs(Token::Ident)) {
+                    if (PeekTokenIs(Token::Assign) || PeekTokenIs(Token::LBracket)) {
+                        return ParseAssignStatement();
+                    }
                 }
                 return ParseExpressionStatement();
         }
@@ -332,14 +343,32 @@ namespace ast {
 
     std::shared_ptr<AssignStatement> Parser::ParseAssignStatement() {
         auto stmt = std::make_shared<AssignStatement>();
-        stmt->identifier = ParseIdentifier(nullptr);
-        if (stmt->identifier == nullptr) {
+        // Parse assignment target: identifier or index expression
+        if (!CurrentTokenIs(Token::Ident)) {
+            _errors.emplace_back("assignment target must start with identifier");
             return nullptr;
         }
 
-        NextToken();
-        stmt->token = _currentToken;
-        NextToken();
+        // Simple identifier
+        auto ident = ParseIdentifier(nullptr);
+        std::shared_ptr<ExpressionNode> target = ident;
+
+        // Index assignment: ident '[' ... ']'
+        if (PeekTokenIs(Token::LBracket)) {
+            NextToken(); // move to '['
+            target = ParseIndexExpression(ident);
+            if (!target) {
+                return nullptr;
+            }
+        }
+
+        if (!ExpectPeek(Token::Assign)) {
+            return nullptr;
+        }
+
+        stmt->token = _currentToken; // '='
+        NextToken(); // move to expression after '='
+        stmt->target = target;
         stmt->expression = ParseExpression(LOWEST);
         if (stmt->expression == nullptr) {
             return nullptr;
@@ -506,7 +535,6 @@ namespace ast {
     }
 
     std::shared_ptr<FuncExpression> Parser::ParseFuncExpression() {
-        // TODO: надо от повторений c Parser::ParseFuncStatement() избавиться
         auto funcExpression = std::make_shared<FuncExpression>();
         funcExpression->token = _currentToken;
         if (!ExpectPeek(Token::LParen)) {
@@ -560,6 +588,69 @@ namespace ast {
 
         NextToken();
         return expression;
+    }
+
+    std::shared_ptr<IndexExpression> Parser::ParseIndexExpression(std::shared_ptr<ExpressionNode> leftExpression) {
+        auto expression = std::make_shared<IndexExpression>();
+        expression->token = _currentToken;
+        expression->left = leftExpression;
+
+        NextToken();
+        expression->index = ParseExpression(LOWEST);
+
+        if (!ExpectPeek(Token::RBracket)) {
+            return nullptr;
+        }
+
+        return expression;
+    }
+
+    std::shared_ptr<ArrayLiteral> Parser::ParseArrayLiteral() {
+        auto literal = std::make_shared<ArrayLiteral>();
+        literal->token = _currentToken;
+
+        // []TYPE{elem, elem}
+        if (!ExpectPeek(Token::RBracket)) {
+            return nullptr;
+        }
+
+        NextToken(); // move to element type token
+        literal->elementType = ParseDataType();
+        if (literal->elementType == nullptr) {
+            return nullptr;
+        }
+
+        NextToken(); // should be '{'
+        if (!CurrentTokenIs(Token::LBrace)) {
+            _errors.emplace_back("array literal expected '{', got: " + _currentToken.tokenLiteral);
+            return nullptr;
+        }
+
+        if (PeekTokenIs(Token::RBrace)) {
+            NextToken(); // move to '}'
+            return literal; // empty array literal
+        }
+
+        NextToken(); // move to first element
+        literal->elements.emplace_back(ParseExpression(LOWEST));
+        if (*literal->elements.rbegin() == nullptr) {
+            return nullptr;
+        }
+
+        while (PeekTokenIs(Token::Comma)) {
+            NextToken(); // move to comma
+            NextToken(); // move to next element
+            literal->elements.emplace_back(ParseExpression(LOWEST));
+            if (*literal->elements.rbegin() == nullptr) {
+                return nullptr;
+            }
+        }
+
+        if (!ExpectPeek(Token::RBrace)) {
+            return nullptr;
+        }
+
+        return literal;
     }
 
     std::vector<std::shared_ptr<ExpressionNode>> Parser::ParseCallArguments() {
