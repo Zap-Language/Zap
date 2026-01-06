@@ -2,11 +2,10 @@
 
 #include "gc.h"
 #include "value.h"
-#include "../lib/bytecode/bytecode_chunk.h"
-#include "../lib/bytecode/opcodes.h"
+#include "bytecode/bytecode_chunk.h"
+#include "bytecode/opcodes.h"
 #include <vector>
 #include <stack>
-#include <unordered_map>
 #include <memory>
 
 namespace jit {
@@ -32,7 +31,7 @@ public:
 
     GarbageCollector& getGC() { return gc; }
     
-    const bytecode::BytecodeChunk* getChunk() const { return chunk.get(); }
+    [[nodiscard]] const bytecode::BytecodeChunk* getChunk() const { return chunk.get(); }
     bytecode::BytecodeChunk* getChunk() { return chunk.get(); }
 
     enum class Status {
@@ -42,7 +41,7 @@ public:
         STACK_UNDERFLOW,
     };
 
-    Status getStatus() const { return status; }
+    [[nodiscard]] Status getStatus() const { return status; }
 
     static constexpr size_t STACK_MAX = 256;
     std::vector<Value> stack;
@@ -65,6 +64,8 @@ public:
     void pushFunc();
     void halt();
 
+    void builtinCastInt();
+
 private:
     std::unique_ptr<bytecode::BytecodeChunk> chunk;
     size_t ip;
@@ -74,7 +75,7 @@ private:
 
     void push(const Value& value);
     Value pop();
-    Value peek(size_t distance = 0) const;
+    [[nodiscard]] Value peek(size_t distance = 0) const;
     
     friend class JITCompiler;
 

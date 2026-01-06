@@ -1,6 +1,5 @@
 #ifndef ZAP_DATATYPESTRING_H
 #define ZAP_DATATYPESTRING_H
-#include <string>
 
 #include "DataType.h"
 #include "DataTypeArray.h"

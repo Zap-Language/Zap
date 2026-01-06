@@ -40,15 +40,15 @@ namespace ast {
         std::shared_ptr<Scope> GetCurrentScope() const;
         size_t GetCurrentDepth() const;
 
-        bool DeclareVariable(const std::string& name, std::shared_ptr<DataType> type);
+        bool DeclareVariable(const std::string &name, const std::shared_ptr<DataType> &type);
         std::shared_ptr<DataType> LookupVariable(const std::string& name) const;
         bool VariableExists(const std::string& name) const;
 
-        bool DeclareFunction(const std::string& name, std::shared_ptr<FuncStatement> func);
+        bool DeclareFunction(const std::string& name, const std::shared_ptr<FuncStatement> &func);
         std::shared_ptr<FuncStatement> LookupFunction(const std::string& name) const;
         bool FunctionExists(const std::string& name) const;
 
-        bool DeclareParameter(const std::string& name, std::shared_ptr<DataType> type);
+        bool DeclareParameter(const std::string &name, const std::shared_ptr<DataType> &type);
 
         void RegisterBuiltinFunctions();
         bool IsBuiltinFunction(const std::string& name) const;

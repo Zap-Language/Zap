@@ -1,10 +1,5 @@
 #include "SymbolTable.h"
-#include "../DataTypeInt.h"
 #include "../DataTypeFloat.h"
-#include "../DataTypeString.h"
-#include "../DataTypeBool.h"
-#include "../DataTypeChar.h"
-#include "../DataTypeVoid.h"
 #include <sstream>
 #include <algorithm>
 #include <unordered_map>
@@ -43,7 +38,7 @@ namespace ast {
         return scopes.size() - 1;
     }
 
-    bool SymbolTable::DeclareVariable(const std::string& name, std::shared_ptr<DataType> type) {
+    bool SymbolTable::DeclareVariable(const std::string& name, const std::shared_ptr<DataType>& type) {
         auto currentScope = GetCurrentScope();
         if (!currentScope) {
             AddError("No current scope available for variable declaration", name);
@@ -72,7 +67,7 @@ namespace ast {
         return LookupVariable(name) != nullptr;
     }
 
-    bool SymbolTable::DeclareFunction(const std::string& name, std::shared_ptr<FuncStatement> func) {
+    bool SymbolTable::DeclareFunction(const std::string& name, const std::shared_ptr<FuncStatement> &func) {
         auto currentScope = GetCurrentScope();
         if (!currentScope) {
             AddError("No current scope available for function declaration", name);
@@ -103,7 +98,7 @@ namespace ast {
         return LookupFunction(name) != nullptr || IsBuiltinFunction(name);
     }
 
-    bool SymbolTable::DeclareParameter(const std::string& name, std::shared_ptr<DataType> type) {
+    bool SymbolTable::DeclareParameter(const std::string& name, const std::shared_ptr<DataType>& type) {
         auto currentScope = GetCurrentScope();
         if (!currentScope) {
             AddError("No current scope available for parameter declaration", name);
@@ -124,7 +119,7 @@ namespace ast {
     }
 
     bool SymbolTable::IsBuiltinFunction(const std::string& name) const {
-        return std::find(builtinFunctions.begin(), builtinFunctions.end(), name) != builtinFunctions.end();
+        return std::ranges::find(builtinFunctions, name) != builtinFunctions.end();
     }
 
     const std::vector<SymbolTable::SymbolError>& SymbolTable::GetErrors() const {
@@ -188,7 +183,7 @@ namespace ast {
             tempStack.pop();
         }
 
-        std::reverse(scopeList.begin(), scopeList.end());
+        std::ranges::reverse(scopeList);
 
         for (size_t depth = 0; depth < scopeList.size(); ++depth) {
             const auto& scope = scopeList[depth];

@@ -5,7 +5,6 @@
 
 #include <vector>
 #include <string>
-#include <cstdint>
 #include <cstring>
 #include <istream>
 #include <memory>
@@ -24,11 +23,11 @@ void readRaw(std::istream& is, T& value) {
 
 struct FunctionInfo {
     std::string name;                  
-    uint32_t codeOffset;               
-    uint32_t codeLength;               
-    uint8_t paramCount;                
-    uint8_t localCount;                
-    ValueType returnType;              
+    uint32_t codeOffset{};
+    uint32_t codeLength{};
+    uint8_t paramCount{};
+    uint8_t localCount{};
+    ValueType returnType{};
     std::vector<ValueType> paramTypes; 
 };
 
@@ -38,11 +37,11 @@ public:
 
    
 
-    const std::vector<uint8_t>& Code() const { return _code; }
-    const std::vector<std::string>& Strings() const { return _strings; }
-    const std::vector<FunctionInfo>& Functions() const { return _functions; }
+    [[nodiscard]] const std::vector<uint8_t>& Code() const { return _code; }
+    [[nodiscard]] const std::vector<std::string>& Strings() const { return _strings; }
+    [[nodiscard]] const std::vector<FunctionInfo>& Functions() const { return _functions; }
 
-    size_t CurrentOffset() const { return _code.size(); }
+    [[nodiscard]] size_t CurrentOffset() const { return _code.size(); }
 
    
 
@@ -106,18 +105,18 @@ public:
 
    
 
-    uint8_t ReadByte(size_t offset) const {
+    [[nodiscard]] uint8_t ReadByte(size_t offset) const {
         return _code[offset];
     }
 
-    uint32_t ReadUint32(size_t offset) const {
+    [[nodiscard]] uint32_t ReadUint32(size_t offset) const {
         return static_cast<uint32_t>(_code[offset]) |
                (static_cast<uint32_t>(_code[offset + 1]) << 8) |
                (static_cast<uint32_t>(_code[offset + 2]) << 16) |
                (static_cast<uint32_t>(_code[offset + 3]) << 24);
     }
 
-    int64_t ReadInt64(size_t offset) const {
+    [[nodiscard]] int64_t ReadInt64(size_t offset) const {
         int64_t value = 0;
         for (int i = 0; i < 8; ++i) {
             int64_t byte = (i == 7) 
@@ -128,7 +127,7 @@ public:
         return value;
     }
 
-    double ReadDouble(size_t offset) const {
+    [[nodiscard]] double ReadDouble(size_t offset) const {
         uint64_t bits = 0;
         for (int i = 0; i < 8; ++i) {
             bits |= static_cast<uint64_t>(_code[offset + i]) << (i * 8);
@@ -144,25 +143,25 @@ public:
         writeRaw(os, magic);
 
         // 2. Сериализация байт-кода (_code)
-        uint32_t codeSize = static_cast<uint32_t>(_code.size());
+        const auto codeSize = static_cast<uint32_t>(_code.size());
         writeRaw(os, codeSize);
         os.write(reinterpret_cast<const char*>(_code.data()), codeSize);
 
         // 3. Сериализация строк (_strings)
-        uint32_t stringCount = static_cast<uint32_t>(_strings.size());
+        const auto stringCount = static_cast<uint32_t>(_strings.size());
         writeRaw(os, stringCount);
         for (const auto& s : _strings) {
-            uint32_t len = static_cast<uint32_t>(s.length());
+            auto len = static_cast<uint32_t>(s.length());
             writeRaw(os, len);
             os.write(s.data(), len);
         }
 
         // 4. Сериализация информации о функциях (_functions)
-        uint32_t funcCount = static_cast<uint32_t>(_functions.size());
+        auto funcCount = static_cast<uint32_t>(_functions.size());
         writeRaw(os, funcCount);
         for (const auto& f : _functions) {
             // Имя функции
-            uint32_t nameLen = static_cast<uint32_t>(f.name.length());
+            auto nameLen = static_cast<uint32_t>(f.name.length());
             writeRaw(os, nameLen);
             os.write(f.name.data(), nameLen);
 
@@ -174,7 +173,7 @@ public:
             writeRaw(os, f.returnType);
 
             // Вектор типов параметров (paramTypes)
-            uint32_t paramTypesSize = static_cast<uint32_t>(f.paramTypes.size());
+            auto paramTypesSize = static_cast<uint32_t>(f.paramTypes.size());
             writeRaw(os, paramTypesSize);
             for (const auto& type : f.paramTypes) {
                 writeRaw(os, type);

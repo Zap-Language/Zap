@@ -69,7 +69,7 @@ namespace Token {
     };
 
     struct Token {
-        TokenType tokenType;
+        TokenType tokenType{};
         std::string tokenLiteral;
 
         Token() = default;

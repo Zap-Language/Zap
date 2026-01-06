@@ -40,6 +40,9 @@ namespace ast {
         _prefixParseFunction.emplace(Token::Len, [this] { return ParseIdentifier(nullptr); });
         _prefixParseFunction.emplace(Token::Read, [this] { return ParseIdentifier(nullptr); });
 
+        // Datatype convertors
+        _prefixParseFunction.emplace(Token::IntType, [this] { return ParseIdentifier(nullptr); });
+
         // Infix parsers preparation
         _infixParseFunction.emplace(Token::Plus, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
         _infixParseFunction.emplace(Token::Minus, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
@@ -77,8 +80,7 @@ namespace ast {
         auto program = std::make_unique<Program>();
 
         while (!CurrentTokenIs(Token::Eof)) {
-            auto statement = ParseStatement();
-            if (statement != nullptr) {
+            if (auto statement = ParseStatement(); statement != nullptr) {
                 program->statements.emplace_back(statement);
             }
 
@@ -185,7 +187,7 @@ namespace ast {
         }
     }
 
-    Precedence Parser::PeekPrecedence() {
+    Precedence Parser::PeekPrecedence() const {
         if (_precedence.contains(_peekToken.tokenType)) {
             return _precedence.at(_peekToken.tokenType);
         }
@@ -578,7 +580,7 @@ namespace ast {
     std::shared_ptr<CallExpression> Parser::ParseCallExpression(std::shared_ptr<ExpressionNode> leftExpression) {
         auto expression = std::make_shared<CallExpression>();
         expression->token = _currentToken;
-        expression->function = leftExpression;
+        expression->function = std::move(leftExpression);
         NextToken();
 
         expression->arguments = ParseCallArguments();
@@ -593,7 +595,7 @@ namespace ast {
     std::shared_ptr<IndexExpression> Parser::ParseIndexExpression(std::shared_ptr<ExpressionNode> leftExpression) {
         auto expression = std::make_shared<IndexExpression>();
         expression->token = _currentToken;
-        expression->left = leftExpression;
+        expression->left = std::move(leftExpression);
 
         NextToken();
         expression->index = ParseExpression(LOWEST);
@@ -609,37 +611,36 @@ namespace ast {
         auto literal = std::make_shared<ArrayLiteral>();
         literal->token = _currentToken;
 
-        // []TYPE{elem, elem}
         if (!ExpectPeek(Token::RBracket)) {
             return nullptr;
         }
 
-        NextToken(); // move to element type token
+        NextToken();
         literal->elementType = ParseDataType();
         if (literal->elementType == nullptr) {
             return nullptr;
         }
 
-        NextToken(); // should be '{'
+        NextToken();
         if (!CurrentTokenIs(Token::LBrace)) {
             _errors.emplace_back("array literal expected '{', got: " + _currentToken.tokenLiteral);
             return nullptr;
         }
 
         if (PeekTokenIs(Token::RBrace)) {
-            NextToken(); // move to '}'
-            return literal; // empty array literal
+            NextToken();
+            return literal;
         }
 
-        NextToken(); // move to first element
+        NextToken();
         literal->elements.emplace_back(ParseExpression(LOWEST));
         if (*literal->elements.rbegin() == nullptr) {
             return nullptr;
         }
 
         while (PeekTokenIs(Token::Comma)) {
-            NextToken(); // move to comma
-            NextToken(); // move to next element
+            NextToken();
+            NextToken();
             literal->elements.emplace_back(ParseExpression(LOWEST));
             if (*literal->elements.rbegin() == nullptr) {
                 return nullptr;

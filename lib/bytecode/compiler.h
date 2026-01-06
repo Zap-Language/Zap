@@ -13,14 +13,11 @@
 #include <string>
 #include <unordered_map>
 
-#include "opcodes.h"
-#include "value_type.h"
 #include "parser/ast/AssignStatement.h"
 #include "parser/ast/BoolLiteral.h"
 #include "parser/ast/CallExpression.h"
 #include "parser/ast/CharLiteral.h"
 #include "parser/ast/DataType.h"
-#include "parser/ast/DataTypeArray.h"
 #include "parser/ast/ArrayLiteral.h"
 #include "parser/ast/IndexExpression.h"
 #include "parser/ast/ElseStatement.h"
@@ -90,12 +87,12 @@ private:
     void CompileReturnStatement(const ast::ReturnStatement& stmt);
    
     void CompileExpression(const ast::ExpressionNode& expr);
-    void CompileIntegerLiteral(const ast::IntLiteral& lit);
-    void CompileFloatLiteral(const ast::FloatLiteral& lit);
-    void CompileBoolLiteral(const ast::BoolLiteral& lit);
-    void CompileCharLiteral(const ast::CharLiteral& lit);
-    void CompileStringLiteral(const ast::StringLiteral& lit);
-    void CompileIdentifier(const ast::Identifier& ident);
+    void CompileIntegerLiteral(const ast::IntLiteral& lit) const;
+    void CompileFloatLiteral(const ast::FloatLiteral& lit) const;
+    void CompileBoolLiteral(const ast::BoolLiteral& lit) const;
+    void CompileCharLiteral(const ast::CharLiteral& lit) const;
+    void CompileStringLiteral(const ast::StringLiteral& lit) const;
+    void CompileIdentifier(const ast::Identifier& ident) const;
     void CompilePrefixExpression(const ast::PrefixExpression& expr);
     void CompileInfixExpression(const ast::InfixExpression& expr);
     void CompileCallExpression(const ast::CallExpression& expr);
@@ -104,30 +101,32 @@ private:
    
     void CompileFuncExpression(const ast::FuncExpression& expr);
    
-    uint32_t DeclareLocal(const std::string& name, ValueType type);
+    uint32_t DeclareLocal(const std::string& name, ValueType type) const;
     int32_t ResolveLocal(const std::string& name) const;
     uint32_t DeclareGlobal(const std::string& name);
     int32_t ResolveGlobal(const std::string& name) const;
 
-    void EmitLoad(const std::string& name);
-    void EmitStore(const std::string& name);
+    void EmitLoad(const std::string& name) const;
+    void EmitStore(const std::string& name) const;
 
    
-    size_t EmitJump(OpCode jumpOp);
-    void PatchJump(size_t jumpPosition);
-    void EmitLoop(size_t loopStart);
+    size_t EmitJump(OpCode jumpOp) const;
+    void PatchJump(size_t jumpPosition) const;
+    void EmitLoop(size_t loopStart) const;
 
    
     void BeginScope();
     void EndScope();
 
-   
-    ValueType ConvertType(ast::DataType& type);
-    ValueType ConvertType(ast::TypeDataType type);
 
-   
-    bool IsBuiltinFunction(const std::string& name) const;
-    BuiltinFunction GetBuiltinFunction(const std::string& name) const;
+    static ValueType ConvertType(ast::DataType& type);
+
+    static ValueType ConvertType(ast::TypeDataType type);
+
+
+    static bool IsBuiltinFunction(const std::string& name);
+
+    static BuiltinFunction GetBuiltinFunction(const std::string& name);
 
    
     bool IsInFunction() const { return _currentFunction != nullptr; }

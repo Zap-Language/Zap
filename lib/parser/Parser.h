@@ -74,7 +74,7 @@ namespace ast {
 
         std::shared_ptr<DataType> ParseDataType();
 
-        Precedence PeekPrecedence();
+        Precedence PeekPrecedence() const;
 
         void NextToken();
 

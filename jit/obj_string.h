@@ -1,8 +1,9 @@
 #pragma once
 
+#include <cstring>
+
 #include "obj.h"
 #include <string>
-#include <cstring>
 
 namespace jit {
 
@@ -17,15 +18,15 @@ struct ObjString : public Obj {
         chars[length] = '\0';
     }
 
-    ObjString(const std::string& str) 
+    explicit ObjString(const std::string& str)
         : ObjString(str.c_str(), str.length()) {}
 
     ~ObjString() override {
         delete[] chars;
     }
 
-    const char* c_str() const { return chars; }
-    std::string toString() const { return std::string(chars, length); }
+    [[nodiscard]] const char* c_str() const { return chars; }
+    [[nodiscard]] std::string toString() const { return {chars, length}; }
 };
 
 }

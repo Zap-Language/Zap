@@ -8,10 +8,12 @@
 #include "ast/BlockStatement.h"
 #include <iostream>
 
+#include "ast/ElseStatement.h"
+
 namespace ast {
     SemanticAnalyzer::SemanticAnalyzer() = default;
 
-    bool SemanticAnalyzer::AnalyzeProgram(const std::shared_ptr<Program>& program) {
+    bool SemanticAnalyzer::AnalyzeProgram(const std::shared_ptr<Program> &program) {
         if (!program) {
             AddError("Program is null");
             return false;
@@ -21,22 +23,22 @@ namespace ast {
         symbolTable.ClearErrors();
 
         bool success = true;
-        for (const auto& stmt: program->statements) {
+        for (const auto &stmt: program->statements) {
             success &= AnalyzeStatement(stmt);
         }
 
-        for (const auto& symbolError: symbolTable.GetErrors()) {
+        for (const auto &symbolError: symbolTable.GetErrors()) {
             AddError(symbolError.message, symbolError.symbolName);
         }
 
         return success && errors.empty();
     }
 
-    const std::vector<SemanticError>& SemanticAnalyzer::GetErrors() const {
+    const std::vector<SemanticError> &SemanticAnalyzer::GetErrors() const {
         return errors;
     }
 
-    const SymbolTable& SemanticAnalyzer::GetSymbolTable() const {
+    const SymbolTable &SemanticAnalyzer::GetSymbolTable() const {
         return symbolTable;
     }
 
@@ -45,7 +47,7 @@ namespace ast {
             std::cout << std::string(8, '=') << "SEMANTIC ERRORS:" << std::string(8, '=') << std::endl;
         }
 
-        for (const auto& error: errors) {
+        for (const auto &error: errors) {
             std::cout << "Error: " << error.message;
             if (!error.location.empty()) {
                 std::cout << " (at: " << error.location << ")";
@@ -58,7 +60,7 @@ namespace ast {
         std::cout << symbolTable.ToString() << std::endl;
     }
 
-    bool SemanticAnalyzer::AnalyzeStatement(const std::shared_ptr<StatementNode>& stmt) {
+    bool SemanticAnalyzer::AnalyzeStatement(const std::shared_ptr<StatementNode> &stmt) {
         if (!stmt) {
             return true;
         }
@@ -90,7 +92,7 @@ namespace ast {
         if (auto blockStmt = std::dynamic_pointer_cast<BlockStatement>(stmt)) {
             bool success = true;
             symbolTable.EnterScope();
-            for (const auto& s : blockStmt->statements) {
+            for (const auto &s: blockStmt->statements) {
                 success &= AnalyzeStatement(s);
             }
             symbolTable.ExitScope();
@@ -104,15 +106,15 @@ namespace ast {
         return false;
     }
 
-    bool SemanticAnalyzer::AnalyzeFuncStatement(const std::shared_ptr<FuncStatement>& func) {
+    bool SemanticAnalyzer::AnalyzeFuncStatement(const std::shared_ptr<FuncStatement> &func) {
         if (!func) {
             AddError("Function statement is null");
             return false;
         }
         std::string previousScopeName = symbolTable.GetCurrentScopeName();
-        std::string fullFuncName = previousScopeName.empty() ? 
-            func->name->TokenLiteral() : 
-            previousScopeName + "::" + func->name->TokenLiteral();
+        std::string fullFuncName = previousScopeName.empty()
+                                       ? func->name->TokenLiteral()
+                                       : previousScopeName + "::" + func->name->TokenLiteral();
 
         if (!symbolTable.DeclareFunction(func->name->TokenLiteral(), func)) {
             AddError("Failed to declare function '" + func->name->TokenLiteral() + "'");
@@ -123,7 +125,7 @@ namespace ast {
         currentFunctionReturnType = func->returnType;
         bool success = true;
         if (func->arguments) {
-            for (const auto& param: func->arguments->arguments) {
+            for (const auto &param: func->arguments->arguments) {
                 if (!symbolTable.DeclareParameter(param->TokenLiteral(), param->type)) {
                     AddError("Failed to declare parameter '" + param->TokenLiteral() + "'", func->name->TokenLiteral());
                     success = false;
@@ -131,7 +133,7 @@ namespace ast {
             }
         }
         if (func->body) {
-            for (const auto& stmt: func->body->statements) {
+            for (const auto &stmt: func->body->statements) {
                 success &= AnalyzeStatement(stmt);
             }
         }
@@ -141,7 +143,7 @@ namespace ast {
         return success;
     }
 
-    bool SemanticAnalyzer::AnalyzeLetStatement(const std::shared_ptr<LetStatement>& let) {
+    bool SemanticAnalyzer::AnalyzeLetStatement(const std::shared_ptr<LetStatement> &let) {
         if (!let) {
             AddError("Let statement is null");
             return false;
@@ -174,7 +176,7 @@ namespace ast {
         return true;
     }
 
-    bool SemanticAnalyzer::AnalyzeReturnStatement(const std::shared_ptr<ReturnStatement>& ret) {
+    bool SemanticAnalyzer::AnalyzeReturnStatement(const std::shared_ptr<ReturnStatement> &ret) {
         if (!ret) {
             AddError("Return statement is null");
             return false;
@@ -205,7 +207,7 @@ namespace ast {
         return true;
     }
 
-    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeExpression(const std::shared_ptr<ExpressionNode>& expr) {
+    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeExpression(const std::shared_ptr<ExpressionNode> &expr) {
         if (!expr) {
             return nullptr;
         }
@@ -248,7 +250,7 @@ namespace ast {
         return nullptr;
     }
 
-    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeCallExpression(const std::shared_ptr<CallExpression>& call) {
+    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeCallExpression(const std::shared_ptr<CallExpression> &call) {
         if (!call || !call->function) {
             return nullptr;
         }
@@ -301,7 +303,7 @@ namespace ast {
         return funcDecl->returnType;
     }
 
-    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeInfixExpression(const std::shared_ptr<InfixExpression>& infix) {
+    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeInfixExpression(const std::shared_ptr<InfixExpression> &infix) {
         if (!infix) {
             return nullptr;
         }
@@ -318,7 +320,7 @@ namespace ast {
     }
 
     std::shared_ptr<DataType>
-    SemanticAnalyzer::AnalyzePrefixExpression(const std::shared_ptr<PrefixExpression>& prefix) {
+    SemanticAnalyzer::AnalyzePrefixExpression(const std::shared_ptr<PrefixExpression> &prefix) {
         if (!prefix) {
             return nullptr;
         }
@@ -332,7 +334,7 @@ namespace ast {
         return GetResultTypeForPrefixOperation(prefix->token.tokenLiteral, operandType);
     }
 
-    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeIdentifier(const std::shared_ptr<Identifier>& identifier) {
+    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeIdentifier(const std::shared_ptr<Identifier> &identifier) const {
         if (!identifier) {
             return nullptr;
         }
@@ -352,27 +354,27 @@ namespace ast {
         return type;
     }
 
-    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeIntLiteral(const std::shared_ptr<IntLiteral>&) {
+    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeIntLiteral(const std::shared_ptr<IntLiteral> &) {
         return INT;
     }
 
-    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeFloatLiteral(const std::shared_ptr<FloatLiteral>&) {
+    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeFloatLiteral(const std::shared_ptr<FloatLiteral> &) {
         return FLOAT;
     }
 
-    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeBoolLiteral(const std::shared_ptr<BoolLiteral>&) {
+    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeBoolLiteral(const std::shared_ptr<BoolLiteral> &) {
         return BOOL;
     }
 
-    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeCharLiteral(const std::shared_ptr<CharLiteral>&) {
+    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeCharLiteral(const std::shared_ptr<CharLiteral> &) {
         return GetCharType();
     }
 
-    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeStringLiteral(const std::shared_ptr<StringLiteral>&) {
+    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeStringLiteral(const std::shared_ptr<StringLiteral> &) {
         return GetStringType();
     }
 
-    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeArrayLiteral(const std::shared_ptr<ArrayLiteral>& arrayLit) {
+    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeArrayLiteral(const std::shared_ptr<ArrayLiteral> &arrayLit) {
         if (!arrayLit) {
             return nullptr;
         }
@@ -412,7 +414,8 @@ namespace ast {
         return std::make_shared<DataTypeArray>(arrayLit->elementType);
     }
 
-    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeIndexExpression(const std::shared_ptr<IndexExpression>& indexExpr) {
+    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeIndexExpression(
+        const std::shared_ptr<IndexExpression> &indexExpr) {
         if (!indexExpr) {
             return nullptr;
         }
@@ -434,7 +437,7 @@ namespace ast {
             return nullptr;
         }
 
-        auto* arrayDataType = dynamic_cast<DataTypeArray*>(arrayType.get());
+        auto *arrayDataType = dynamic_cast<DataTypeArray *>(arrayType.get());
         if (!arrayDataType) {
             AddError("Internal error: invalid array type");
             return nullptr;
@@ -443,13 +446,13 @@ namespace ast {
         return arrayDataType->itemType;
     }
 
-    bool SemanticAnalyzer::TypesEqual(const std::shared_ptr<DataType>& a, const std::shared_ptr<DataType>& b) const {
+    bool SemanticAnalyzer::TypesEqual(const std::shared_ptr<DataType> &a, const std::shared_ptr<DataType> &b) {
         if (!a || !b) return false;
         if (a->Type() != b->Type()) return false;
 
         if (a->Type() == TypeDataType::Array) {
-            auto* arrA = dynamic_cast<DataTypeArray*>(a.get());
-            auto* arrB = dynamic_cast<DataTypeArray*>(b.get());
+            const auto *arrA = dynamic_cast<DataTypeArray *>(a.get());
+            const auto *arrB = dynamic_cast<DataTypeArray *>(b.get());
             if (!arrA || !arrB) return false;
             return TypesEqual(arrA->itemType, arrB->itemType);
         }
@@ -457,16 +460,15 @@ namespace ast {
         return true;
     }
 
-    bool SemanticAnalyzer::TypesCompatible(const std::shared_ptr<DataType>& expected,
-                                           const std::shared_ptr<DataType>& actual) const {
+    bool SemanticAnalyzer::TypesCompatible(const std::shared_ptr<DataType> &expected,
+                                           const std::shared_ptr<DataType> &actual) {
         return TypesEqual(expected, actual);
     }
 
     std::shared_ptr<DataType> SemanticAnalyzer::GetResultTypeForInfixOperation(
-            const std::string& operator_,
-            const std::shared_ptr<DataType>& left,
-            const std::shared_ptr<DataType>& right) const {
-
+        const std::string &operator_,
+        const std::shared_ptr<DataType> &left,
+        const std::shared_ptr<DataType> &right) const {
         if (operator_ == "+" || operator_ == "-" || operator_ == "*" || operator_ == "/" || operator_ == "%") {
             if (left->Type() == TypeDataType::String || right->Type() == TypeDataType::String) {
                 if (operator_ == "+") {
@@ -510,9 +512,8 @@ namespace ast {
     }
 
     std::shared_ptr<DataType> SemanticAnalyzer::GetResultTypeForPrefixOperation(
-            const std::string& operator_,
-            const std::shared_ptr<DataType>& operand) const {
-
+        const std::string &operator_,
+        const std::shared_ptr<DataType> &operand) const {
         if (operator_ == "!") {
             if (operand->Type() == TypeDataType::Bool) {
                 return BOOL;
@@ -536,8 +537,9 @@ namespace ast {
         return nullptr;
     }
 
-    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeBuiltinCall(const std::string& functionName,
-                                                                   const std::vector<std::shared_ptr<ExpressionNode>>& args) {
+    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeBuiltinCall(const std::string &functionName,
+                                                                   const std::vector<std::shared_ptr<ExpressionNode> > &
+                                                                   args) {
         if (functionName == "print") {
             if (args.size() != 1) {
                 AddError("print() expects exactly 1 argument");
@@ -551,7 +553,7 @@ namespace ast {
                 AddError("len() expects exactly 1 argument");
                 return nullptr;
             }
-            auto argType = AnalyzeExpression(args[0]);
+            const auto argType = AnalyzeExpression(args[0]);
             if (!argType || argType->Type() != TypeDataType::Array) {
                 AddError("len() requires array argument");
                 return nullptr;
@@ -586,11 +588,11 @@ namespace ast {
         return nullptr;
     }
 
-    void SemanticAnalyzer::AddError(const std::string& message, const std::string& location) const {
+    void SemanticAnalyzer::AddError(const std::string &message, const std::string &location) const {
         errors.emplace_back(message, location);
     }
 
-    bool SemanticAnalyzer::AnalyzeIfStatement(const std::shared_ptr<IfStatement>& ifStmt) {
+    bool SemanticAnalyzer::AnalyzeIfStatement(const std::shared_ptr<IfStatement> &ifStmt) {
         if (!ifStmt) {
             AddError("If statement is null");
             return false;
@@ -615,7 +617,7 @@ namespace ast {
         if (ifStmt->thenStatement) {
             if (auto blockStmt = std::dynamic_pointer_cast<BlockStatement>(ifStmt->thenStatement)) {
                 symbolTable.EnterScope();
-                for (const auto& stmt : blockStmt->statements) {
+                for (const auto &stmt: blockStmt->statements) {
                     success &= AnalyzeStatement(stmt);
                 }
                 symbolTable.ExitScope();
@@ -627,7 +629,7 @@ namespace ast {
         if (ifStmt->elseStatement) {
             if (auto blockStmt = std::dynamic_pointer_cast<BlockStatement>(ifStmt->elseStatement)) {
                 symbolTable.EnterScope();
-                for (const auto& stmt : blockStmt->statements) {
+                for (const auto &stmt: blockStmt->statements) {
                     success &= AnalyzeStatement(stmt);
                 }
                 symbolTable.ExitScope();
@@ -641,7 +643,7 @@ namespace ast {
         return success;
     }
 
-    bool SemanticAnalyzer::AnalyzeWhileStatement(const std::shared_ptr<WhileStatement>& whileStmt) {
+    bool SemanticAnalyzer::AnalyzeWhileStatement(const std::shared_ptr<WhileStatement> &whileStmt) {
         if (!whileStmt) {
             AddError("While statement is null");
             return false;
@@ -666,7 +668,7 @@ namespace ast {
         if (whileStmt->stmt) {
             if (auto blockStmt = std::dynamic_pointer_cast<BlockStatement>(whileStmt->stmt)) {
                 symbolTable.EnterScope();
-                for (const auto& stmt : blockStmt->statements) {
+                for (const auto &stmt: blockStmt->statements) {
                     success &= AnalyzeStatement(stmt);
                 }
                 symbolTable.ExitScope();
@@ -678,7 +680,7 @@ namespace ast {
         return success;
     }
 
-    bool SemanticAnalyzer::AnalyzeForStatement(const std::shared_ptr<ForStatement>& forStmt) {
+    bool SemanticAnalyzer::AnalyzeForStatement(const std::shared_ptr<ForStatement> &forStmt) {
         if (!forStmt) {
             AddError("For statement is null");
             return false;
@@ -718,7 +720,7 @@ namespace ast {
 
         if (forStmt->stmt) {
             if (auto blockStmt = std::dynamic_pointer_cast<BlockStatement>(forStmt->stmt)) {
-                for (const auto& s : blockStmt->statements) {
+                for (const auto &s: blockStmt->statements) {
                     success &= AnalyzeStatement(s);
                 }
             } else {
@@ -731,7 +733,7 @@ namespace ast {
         return success;
     }
 
-    bool SemanticAnalyzer::AnalyzeExpressionStatement(const std::shared_ptr<ExpressionStatement>& exprStmt) {
+    bool SemanticAnalyzer::AnalyzeExpressionStatement(const std::shared_ptr<ExpressionStatement> &exprStmt) {
         if (!exprStmt) {
             AddError("Expression statement is null");
             return false;
@@ -751,7 +753,7 @@ namespace ast {
         return true;
     }
 
-    bool SemanticAnalyzer::AnalyzeAssignStatement(const std::shared_ptr<AssignStatement>& assign) {
+    bool SemanticAnalyzer::AnalyzeAssignStatement(const std::shared_ptr<AssignStatement> &assign) {
         if (!assign) {
             AddError("Assign statement is null");
             return false;
@@ -806,7 +808,7 @@ namespace ast {
                 return false;
             }
 
-            auto* arrayDataType = dynamic_cast<DataTypeArray*>(arrayType.get());
+            auto *arrayDataType = dynamic_cast<DataTypeArray *>(arrayType.get());
             if (!arrayDataType) {
                 AddError("Internal error: invalid array type");
                 return false;

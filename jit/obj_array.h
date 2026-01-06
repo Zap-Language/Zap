@@ -26,7 +26,7 @@ struct ObjArray : public Obj {
         }
     }
 
-    size_t size() const { return elements.size(); }
+    [[nodiscard]] size_t size() const { return elements.size(); }
     Value& operator[](size_t index) { return elements[index]; }
     const Value& operator[](size_t index) const { return elements[index]; }
 };

@@ -4,8 +4,6 @@
 #include "obj_array.h"
 #include "obj_function.h"
 #include <iostream>
-#include <sstream>
-#include <stdexcept>
 #include <cmath>
 #include <memory>
 
@@ -17,8 +15,7 @@ VM::VM()
     , status(Status::OK) {
 }
 
-VM::~VM() {
-}
+VM::~VM() = default;
 
 void VM::loadChunk(std::unique_ptr<bytecode::BytecodeChunk> newChunk) {
     chunk = std::move(newChunk);
@@ -44,7 +41,7 @@ void VM::run() {
         
         registerRoots();
 
-        bytecode::OpCode op = static_cast<bytecode::OpCode>(code[ip]);
+        const auto op = static_cast<bytecode::OpCode>(code[ip]);
         ip++;
 
         executeInstruction(op);
@@ -80,16 +77,16 @@ void VM::push(const Value& value) {
 Value VM::pop() {
     if (stack.empty()) {
         status = Status::STACK_UNDERFLOW;
-        return Value();
+        return {};
     }
-    Value value = stack.back();
+    const Value value = stack.back();
     stack.pop_back();
     return value;
 }
 
 Value VM::peek(size_t distance) const {
     if (distance >= stack.size()) {
-        return Value();
+        return {};
     }
     return stack[stack.size() - 1 - distance];
 }
@@ -185,7 +182,7 @@ void VM::pushString() {
     const auto& strings = chunk->Strings();
     if (stringIndex < strings.size()) {
         const std::string& str = strings[stringIndex];
-        ObjString* objStr = gc.allocate<ObjString>(str);
+        auto* objStr = gc.allocate<ObjString>(str);
         push(Value(objStr));
     } else {
         status = Status::RUNTIME_ERROR;
@@ -200,7 +197,7 @@ void VM::pushFunc() {
     uint32_t funcIndex = chunk->ReadUint32(ip);
     ip += 4;
     
-    ObjFunction* objFunc = gc.allocate<ObjFunction>(funcIndex);
+    auto* objFunc = gc.allocate<ObjFunction>(funcIndex);
     push(Value(objFunc));
 }
 
@@ -232,7 +229,7 @@ void VM::storeLocal() {
         Value value = pop();
 
         while (stack.size() <= stackIndex) {
-            stack.push_back(Value());
+            stack.emplace_back();
         }
         
         stack[stackIndex] = value;
@@ -249,7 +246,7 @@ void VM::loadGlobal() {
         push(globals[index]);
     } else {
         while (globals.size() <= index) {
-            globals.push_back(Value());
+            globals.emplace_back();
         }
         push(globals[index]);
     }
@@ -262,7 +259,7 @@ void VM::storeGlobal() {
     Value value = pop();
     
     while (globals.size() <= index) {
-        globals.push_back(Value());
+        globals.emplace_back();
     }
     
     globals[index] = value;
@@ -427,8 +424,8 @@ void VM::cmpEq() {
                 break;
             case bytecode::ValueType::STRING:
                 if (a.asObj && b.asObj && a.asObj->type == Obj::Type::STRING) {
-                    ObjString* strA = static_cast<ObjString*>(a.asObj);
-                    ObjString* strB = static_cast<ObjString*>(b.asObj);
+                    auto strA = dynamic_cast<ObjString*>(a.asObj);
+                    auto strB = dynamic_cast<ObjString*>(b.asObj);
                     result = strA->toString() == strB->toString();
                 }
                 break;
@@ -498,13 +495,13 @@ void VM::cmpGe() {
 }
 
 void VM::jump() {
-    int32_t offset = static_cast<int32_t>(chunk->ReadUint32(ip));
+    auto offset = static_cast<int32_t>(chunk->ReadUint32(ip));
     ip += 4;
     ip = static_cast<size_t>(offset);
 }
 
 void VM::jumpIfFalse() {
-    int32_t offset = static_cast<int32_t>(chunk->ReadUint32(ip));
+    auto offset = static_cast<int32_t>(chunk->ReadUint32(ip));
     ip += 4;
     
     Value condition = peek();
@@ -514,7 +511,7 @@ void VM::jumpIfFalse() {
 }
 
 void VM::jumpIfTrue() {
-    int32_t offset = static_cast<int32_t>(chunk->ReadUint32(ip));
+    auto offset = static_cast<int32_t>(chunk->ReadUint32(ip));
     ip += 4;
     
     Value condition = peek();
@@ -542,7 +539,7 @@ void VM::call() {
         return;
     }
     
-    CallFrame frame;
+    CallFrame frame{};
     frame.functionIndex = functionIndex;
     frame.ip = ip;
     frame.stackStart = stack.size() - argCount;
@@ -552,9 +549,8 @@ void VM::call() {
     
     if (jitCompiler) {
         jitCompiler->incrementCallCount(functionIndex);
-        
-        auto* compiledFunc = jitCompiler->getCompiledFunction(functionIndex);
-        if (compiledFunc) {
+
+        if (auto* compiledFunc = jitCompiler->getCompiledFunction(functionIndex)) {
             ip = func.codeOffset;
             (*compiledFunc)();
             return;
@@ -567,7 +563,6 @@ void VM::call() {
 void VM::callBuiltin() {
     uint8_t builtinIndex = chunk->ReadByte(ip);
     ip += 1;
-    uint8_t argCount = chunk->ReadByte(ip);
     ip += 1;
     
     switch (static_cast<bytecode::BuiltinFunction>(builtinIndex)) {
@@ -579,6 +574,9 @@ void VM::callBuiltin() {
             break;
         case bytecode::BuiltinFunction::READ:
             builtinRead();
+            break;
+        case bytecode::BuiltinFunction::CAST_INT:
+            builtinCastInt();
             break;
         default:
             status = Status::RUNTIME_ERROR;
@@ -620,12 +618,11 @@ void VM::returnVoid() {
 }
 
 void VM::newArray() {
-    bytecode::ValueType elementType = static_cast<bytecode::ValueType>(chunk->ReadByte(ip));
     ip += 1;
     uint32_t size = chunk->ReadUint32(ip);
     ip += 4;
     
-    ObjArray* arr = gc.allocate<ObjArray>(size);
+    auto* arr = gc.allocate<ObjArray>(size);
     push(Value(arr));
 }
 
@@ -635,7 +632,7 @@ void VM::arrayGet() {
 
     if (arrayVal.type == bytecode::ValueType::ARRAY && arrayVal.asObj &&
         indexVal.type == bytecode::ValueType::INT) {
-        ObjArray* arr = static_cast<ObjArray*>(arrayVal.asObj);
+        auto* arr = dynamic_cast<ObjArray*>(arrayVal.asObj);
         const auto idx = static_cast<size_t>(indexVal.asInt);
         if (idx < arr->size()) {
             push(arr->elements[idx]);
@@ -654,7 +651,7 @@ void VM::arraySet() {
     
     if (arrayVal.type == bytecode::ValueType::ARRAY && arrayVal.asObj &&
         indexVal.type == bytecode::ValueType::INT) {
-        ObjArray* arr = static_cast<ObjArray*>(arrayVal.asObj);
+        auto* arr = dynamic_cast<ObjArray*>(arrayVal.asObj);
         const auto idx = static_cast<size_t>(indexVal.asInt);
         if (idx < arr->size()) {
             arr->elements[idx] = value;
@@ -669,7 +666,7 @@ void VM::arraySet() {
 void VM::arrayLen() {
     Value arrayVal = pop();
     if (arrayVal.type == bytecode::ValueType::ARRAY && arrayVal.asObj) {
-        ObjArray* arr = static_cast<ObjArray*>(arrayVal.asObj);
+        auto* arr = dynamic_cast<ObjArray*>(arrayVal.asObj);
         push(Value(static_cast<int64_t>(arr->size())));
     } else {
         status = Status::RUNTIME_ERROR;
@@ -688,6 +685,26 @@ void VM::dup() {
 void VM::halt() {
     status = Status::OK;
     ip = chunk->Code().size();
+}
+
+void VM::builtinCastInt() {
+    if (stack.empty()) {
+        std::cerr << "Error: Stack is empty when calling print" << std::endl;
+        status = Status::STACK_UNDERFLOW;
+        return;
+    }
+
+    Value value = pop();
+
+    switch (value.type) {
+        case bytecode::ValueType::STRING: {
+            auto strObj = dynamic_cast<ObjString*>(value.asObj);
+            push(Value(std::strtoll(strObj->c_str(), nullptr, 10)));
+            break;
+        }
+        default:
+            status = Status::RUNTIME_ERROR;
+    }
 }
 
 void VM::builtinPrint() {
@@ -714,13 +731,13 @@ void VM::builtinPrint() {
             break;
         case bytecode::ValueType::STRING:
             if (value.asObj && value.asObj->type == Obj::Type::STRING) {
-                ObjString* str = static_cast<ObjString*>(value.asObj);
+                auto* str = dynamic_cast<ObjString*>(value.asObj);
                 std::cout << str->toString();
             }
             break;
         case bytecode::ValueType::ARRAY:
             if (value.asObj && value.asObj->type == Obj::Type::ARRAY) {
-                ObjArray* arr = static_cast<ObjArray*>(value.asObj);
+                auto* arr = dynamic_cast<ObjArray*>(value.asObj);
                 std::cout << "[";
                 for (size_t i = 0; i < arr->elements.size(); ++i) {
                     const auto& el = arr->elements[i];
@@ -731,7 +748,7 @@ void VM::builtinPrint() {
                         case bytecode::ValueType::CHAR:  std::cout << el.asChar; break;
                         case bytecode::ValueType::STRING:
                             if (el.asObj && el.asObj->type == Obj::Type::STRING) {
-                                std::cout << static_cast<ObjString*>(el.asObj)->toString();
+                                std::cout << dynamic_cast<ObjString*>(el.asObj)->toString();
                             }
                             break;
                         case bytecode::ValueType::ARRAY:
@@ -761,7 +778,7 @@ void VM::builtinLen() {
     Value value = pop();
     
     if (value.type == bytecode::ValueType::ARRAY && value.asObj) {
-        ObjArray* arr = static_cast<ObjArray*>(value.asObj);
+        auto* arr = dynamic_cast<ObjArray*>(value.asObj);
         push(Value(static_cast<int64_t>(arr->size())));
     } else {
         status = Status::RUNTIME_ERROR;
@@ -771,7 +788,7 @@ void VM::builtinLen() {
 void VM::builtinRead() {
     std::string input;
     std::getline(std::cin, input);
-    ObjString* str = gc.allocate<ObjString>(input);
+    auto* str = gc.allocate<ObjString>(input);
     push(Value(str));
 }
 

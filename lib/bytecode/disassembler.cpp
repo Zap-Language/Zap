@@ -1,6 +1,5 @@
 ﻿#include "disassembler.h"
 #include <iomanip>
-#include <sstream>
 
 namespace bytecode {
 
@@ -48,7 +47,7 @@ size_t Disassembler::DisassembleInstruction(const BytecodeChunk& chunk,
    
     out << std::setfill('0') << std::setw(6) << offset << std::setfill(' ') << "  ";
 
-    OpCode op = static_cast<OpCode>(chunk.ReadByte(offset));
+    auto op = static_cast<OpCode>(chunk.ReadByte(offset));
     offset++;
 
    

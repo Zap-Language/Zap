@@ -1,8 +1,7 @@
 #pragma once
 
 #include "obj.h"
-#include "../lib/bytecode/bytecode_chunk.h"
-#include <vector>
+#include "bytecode/bytecode_chunk.h"
 
 namespace jit {
 

@@ -34,7 +34,7 @@ namespace ast {
     }
 
     bool Scope::VariableExistsInCurrentScope(const std::string& name) const {
-        return variables.find(name) != variables.end();
+        return variables.contains(name);
     }
 
     bool Scope::DeclareFunction(const std::string& name, std::shared_ptr<FuncStatement> func) {
@@ -66,7 +66,7 @@ namespace ast {
     }
 
     bool Scope::FunctionExistsInCurrentScope(const std::string& name) const {
-        return functions.find(name) != functions.end();
+        return functions.contains(name);
     }
 
     std::shared_ptr<Scope> Scope::GetParent() const {

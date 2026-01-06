@@ -1,9 +1,8 @@
 #pragma once
 
 #include "obj.h"
-#include "../lib/bytecode/value_type.h"
+#include "bytecode/value_type.h"
 #include <cstdint>
-#include <cstring>
 
 namespace jit {
 
@@ -43,13 +42,13 @@ struct Value {
         }
     }
 
-    bool isObj() const {
+    [[nodiscard]] bool isObj() const {
         return type == bytecode::ValueType::STRING ||
                type == bytecode::ValueType::ARRAY ||
                type == bytecode::ValueType::FUNCTION;
     }
 
-    Obj* getObj() const {
+    [[nodiscard]] Obj* getObj() const {
         return isObj() ? asObj : nullptr;
     }
 };

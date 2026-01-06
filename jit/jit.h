@@ -15,7 +15,7 @@ public:
     
     void incrementCallCount(uint32_t functionIndex);
     bool isHotFunction(uint32_t functionIndex) const;
-    std::optional<std::function<void()>> compileFunction(uint32_t functionIndex);
+    std::optional<std::function<void()>> compileFunction(uint32_t functionIndex) const;
     std::function<void()>* getCompiledFunction(uint32_t functionIndex);
     
     size_t getCompiledFunctionsCount() const { return compiledFunctions.size(); }
@@ -29,7 +29,7 @@ private:
     static constexpr size_t JIT_THRESHOLD = 10;
     
     bool generateInstruction(bytecode::OpCode op, size_t& codeOffset, 
-                            std::vector<std::function<void()>>& code);
+                            std::vector<std::function<void()>>& code) const;
 };
 
 }

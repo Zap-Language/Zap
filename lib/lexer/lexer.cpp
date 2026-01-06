@@ -114,6 +114,7 @@ Token::Token Lexer::NextToken() {
             break;
         case '"':
             token = Token::Token(Token::Quote, "\"");
+            break;
         case '\n':
             token = Token::Token(Token::NewLine, "\n");
             break;

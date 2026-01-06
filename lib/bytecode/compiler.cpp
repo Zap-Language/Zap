@@ -1,18 +1,17 @@
 ﻿#include "compiler.h"
-#include "parser/ast/IntLiteral.h"
-#include "parser/ast/FloatLiteral.h"
-#include "parser/ast/BoolLiteral.h"
-#include "parser/ast/CharLiteral.h"
-#include "parser/ast/StringLiteral.h"
-#include "parser/ast/Identifier.h"
-#include "parser/ast/PrefixExpression.h"
-#include "parser/ast/InfixExpression.h"
-#include "parser/ast/CallExpression.h"
-#include "parser/ast/DataTypeArray.h"
-#include "parser/ast/FuncExpression.h"
-#include "parser/ast/LetStatement.h"
-#include "parser/ast/BlockStatement.h"
 #include <unordered_set>
+#include "parser/ast/BlockStatement.h"
+#include "parser/ast/BoolLiteral.h"
+#include "parser/ast/CallExpression.h"
+#include "parser/ast/CharLiteral.h"
+#include "parser/ast/DataTypeArray.h"
+#include "parser/ast/FloatLiteral.h"
+#include "parser/ast/Identifier.h"
+#include "parser/ast/InfixExpression.h"
+#include "parser/ast/IntLiteral.h"
+#include "parser/ast/LetStatement.h"
+#include "parser/ast/PrefixExpression.h"
+#include "parser/ast/StringLiteral.h"
 
 #include "bytecode_chunk.h"
 #include "parser/ast/AssignStatement.h"
@@ -22,7 +21,6 @@
 #include "parser/ast/FuncStatement.h"
 #include "parser/ast/IfStatement.h"
 #include "parser/ast/ReturnStatement.h"
-#include "parser/ast/program.h"
 #include "parser/ast/WhileStatement.h"
 
 namespace bytecode {
@@ -380,33 +378,33 @@ void Compiler::CompileExpression(const ast::ExpressionNode& expr) {
     }
 }
 
-void Compiler::CompileIntegerLiteral(const ast::IntLiteral& lit) {
+void Compiler::CompileIntegerLiteral(const ast::IntLiteral& lit) const {
     _chunk->EmitOpCode(OpCode::PUSH_INT);
     _chunk->EmitInt64(lit.value);
 }
 
-void Compiler::CompileFloatLiteral(const ast::FloatLiteral& lit) {
+void Compiler::CompileFloatLiteral(const ast::FloatLiteral& lit) const {
     _chunk->EmitOpCode(OpCode::PUSH_FLOAT);
-    _chunk->EmitDouble(lit.value);
+    _chunk->EmitDouble(static_cast<double>(lit.value));
 }
 
-void Compiler::CompileBoolLiteral(const ast::BoolLiteral& lit) {
+void Compiler::CompileBoolLiteral(const ast::BoolLiteral& lit) const {
     _chunk->EmitOpCode(OpCode::PUSH_BOOL);
     _chunk->EmitByte(lit.value ? 1 : 0);
 }
 
-void Compiler::CompileCharLiteral(const ast::CharLiteral& lit) {
+void Compiler::CompileCharLiteral(const ast::CharLiteral& lit) const {
     _chunk->EmitOpCode(OpCode::PUSH_CHAR);
     _chunk->EmitByte(static_cast<uint8_t>(lit.value));
 }
 
-void Compiler::CompileStringLiteral(const ast::StringLiteral& lit) {
+void Compiler::CompileStringLiteral(const ast::StringLiteral& lit) const {
     uint32_t index = _chunk->AddString(lit.value);
     _chunk->EmitOpCode(OpCode::PUSH_STRING);
     _chunk->EmitUint32(index);
 }
 
-void Compiler::CompileIdentifier(const ast::Identifier& ident) {
+void Compiler::CompileIdentifier(const ast::Identifier& ident) const {
     EmitLoad(trim(ident.token.tokenLiteral));
 }
 
@@ -505,7 +503,7 @@ void Compiler::CompileCallExpression(const ast::CallExpression& expr) {
         CompileExpression(*arg);
     }
 
-    uint8_t argCount = static_cast<uint8_t>(expr.arguments.size());
+    const auto argCount = static_cast<uint8_t>(expr.arguments.size());
 
     if (IsBuiltinFunction(funcName)) {
         BuiltinFunction builtin = GetBuiltinFunction(funcName);
@@ -610,7 +608,7 @@ void Compiler::CompileFuncExpression(const ast::FuncExpression& expr) {
     _chunk->EmitUint32(funcIndex);
 }
 
-uint32_t Compiler::DeclareLocal(const std::string& name, ValueType type) {
+uint32_t Compiler::DeclareLocal(const std::string& name, ValueType type) const {
     if (!_currentFunction) {
         throw CompilerError("Cannot declare local variable outside of function");
     }
@@ -621,7 +619,7 @@ uint32_t Compiler::DeclareLocal(const std::string& name, ValueType type) {
         }
     }
 
-    uint32_t index = static_cast<uint32_t>(_currentFunction->locals.size());
+    const auto index = static_cast<uint32_t>(_currentFunction->locals.size());
     _currentFunction->locals.push_back({name, index, _currentFunction->scopeDepth, type});
 
     return index;
@@ -660,7 +658,7 @@ int32_t Compiler::ResolveGlobal(const std::string& name) const {
     return -1;
 }
 
-void Compiler::EmitLoad(const std::string& name) {
+void Compiler::EmitLoad(const std::string& name) const {
     int32_t localIndex = ResolveLocal(name);
     if (localIndex >= 0) {
         _chunk->EmitOpCode(OpCode::LOAD_LOCAL);
@@ -678,7 +676,7 @@ void Compiler::EmitLoad(const std::string& name) {
     throw CompilerError("Undefined variable: " + name);
 }
 
-void Compiler::EmitStore(const std::string& name) {
+void Compiler::EmitStore(const std::string& name) const {
     int32_t localIndex = ResolveLocal(name);
     if (localIndex >= 0) {
         _chunk->EmitOpCode(OpCode::STORE_LOCAL);
@@ -696,19 +694,19 @@ void Compiler::EmitStore(const std::string& name) {
     throw CompilerError("Undefined variable: " + name);
 }
 
-size_t Compiler::EmitJump(OpCode jumpOp) {
+size_t Compiler::EmitJump(OpCode jumpOp) const {
     _chunk->EmitOpCode(jumpOp);
     size_t patchPosition = _chunk->CurrentOffset();
     _chunk->EmitUint32(0);
     return patchPosition;
 }
 
-void Compiler::PatchJump(size_t jumpPosition) {
-    uint32_t target = static_cast<uint32_t>(_chunk->CurrentOffset());
+void Compiler::PatchJump(size_t jumpPosition) const {
+    const auto target = static_cast<uint32_t>(_chunk->CurrentOffset());
     _chunk->PatchUint32(jumpPosition, target);
 }
 
-void Compiler::EmitLoop(size_t loopStart) {
+void Compiler::EmitLoop(size_t loopStart) const {
     _chunk->EmitOpCode(OpCode::JMP);
     _chunk->EmitUint32(static_cast<uint32_t>(loopStart));
 }
@@ -753,14 +751,14 @@ ValueType Compiler::ConvertType(ast::TypeDataType type) {
     }
 }
 
-bool Compiler::IsBuiltinFunction(const std::string& name) const {
+bool Compiler::IsBuiltinFunction(const std::string& name) {
     static const std::unordered_set<std::string> builtins = {
         "print", "len", "read", "int", "float", "bool", "char", "string"
     };
-    return builtins.find(name) != builtins.end();
+    return builtins.contains(name);
 }
 
-BuiltinFunction Compiler::GetBuiltinFunction(const std::string& name) const {
+BuiltinFunction Compiler::GetBuiltinFunction(const std::string& name) {
     static const std::unordered_map<std::string, BuiltinFunction> builtins = {
         {"print",  BuiltinFunction::PRINT},
         {"len",    BuiltinFunction::LEN},

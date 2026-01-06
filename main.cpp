@@ -15,6 +15,7 @@ int main(int argc, char **argv) {
 
     std::string inputPath = "";
     std::string outputPath = "output.bc"; // Имя по умолчанию
+    bool debug = false;
 
     // Парсим аргументы командной строки
     for (int i = 1; i < argc; ++i) {
@@ -26,6 +27,8 @@ int main(int argc, char **argv) {
                 std::cerr << "Error: -o requires an argument" << std::endl;
                 return 1;
             }
+        } else if (arg == "-d") {
+            debug = true;
         } else if (inputPath.empty()) {
             inputPath = arg;
         }
@@ -84,6 +87,11 @@ int main(int argc, char **argv) {
     chunk->Serialize(ofs);
 
     std::cout << "Successfully compiled '" << inputPath << "' to '" << outputPath << "'" << std::endl;
+
+    if (debug) {
+        std::ofstream debugOutput("out.dbg", std::ios::binary);
+        bytecode::Disassembler::Disassemble(*chunk, debugOutput);
+    }
 
     return 0;
 }

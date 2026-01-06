@@ -23,11 +23,11 @@ enum class SymbolScope {
 };
 
 struct Symbol {
-    std::string name;      
-    ValueType type;        
-    SymbolScope scope;     
-    uint32_t index;        
-    bool isConstant;       
+    std::string name;
+    ValueType type{};
+    SymbolScope scope{};
+    uint32_t index{};
+    bool isConstant{};
 
     Symbol() = default;
     Symbol(std::string n, ValueType t, SymbolScope s, uint32_t i, bool c = false)
@@ -52,7 +52,7 @@ private:
     std::shared_ptr<SymbolTable> _parent;
     std::unordered_map<std::string, Symbol> _symbols;
     uint32_t _localCount;
-    uint32_t _globalCount; 
+    uint32_t _globalCount;
 };
 
 }

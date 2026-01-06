@@ -89,18 +89,18 @@ enum class BuiltinFunction : uint8_t {
 
 inline size_t GetOperandSize(OpCode op) {
     switch (op) {
-        case OpCode::PUSH_INT:      return 8;
+        case OpCode::PUSH_INT:
         case OpCode::PUSH_FLOAT:    return 8;
-        case OpCode::PUSH_BOOL:     return 1;
+        case OpCode::PUSH_BOOL:
         case OpCode::PUSH_CHAR:     return 1;
-        case OpCode::PUSH_STRING:   return 4;
-        case OpCode::PUSH_FUNC:     return 4;
-        case OpCode::LOAD_LOCAL:    return 4;
-        case OpCode::STORE_LOCAL:   return 4;
-        case OpCode::LOAD_GLOBAL:   return 4;
-        case OpCode::STORE_GLOBAL:  return 4;
-        case OpCode::JMP:           return 4;
-        case OpCode::JMP_IF_FALSE:  return 4;
+        case OpCode::PUSH_STRING:
+        case OpCode::PUSH_FUNC:
+        case OpCode::LOAD_LOCAL:
+        case OpCode::STORE_LOCAL:
+        case OpCode::LOAD_GLOBAL:
+        case OpCode::STORE_GLOBAL:
+        case OpCode::JMP:
+        case OpCode::JMP_IF_FALSE:
         case OpCode::JMP_IF_TRUE:   return 4;
         case OpCode::CALL:          return 5; 
         case OpCode::CALL_BUILTIN:  return 2; 
