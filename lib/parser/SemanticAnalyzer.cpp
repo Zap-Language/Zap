@@ -365,11 +365,11 @@ namespace ast {
     }
 
     std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeCharLiteral(const std::shared_ptr<CharLiteral>&) {
-        return CHAR;
+        return GetCharType();
     }
 
     std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeStringLiteral(const std::shared_ptr<StringLiteral>&) {
-        return STRING;
+        return GetStringType();
     }
 
     std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeArrayLiteral(const std::shared_ptr<ArrayLiteral>& arrayLit) {
@@ -470,7 +470,7 @@ namespace ast {
         if (operator_ == "+" || operator_ == "-" || operator_ == "*" || operator_ == "/" || operator_ == "%") {
             if (left->Type() == TypeDataType::String || right->Type() == TypeDataType::String) {
                 if (operator_ == "+") {
-                    return STRING;
+                    return GetStringType();
                 } else {
                     AddError("Invalid operation '" + operator_ + "' on string");
                     return nullptr;
@@ -564,7 +564,7 @@ namespace ast {
                 AddError("read() expects no arguments");
                 return nullptr;
             }
-            return STRING;
+            return GetStringType();
         }
 
         if (functionName == "int" || functionName == "float" || functionName == "string" ||
@@ -577,9 +577,9 @@ namespace ast {
 
             if (functionName == "int") return INT;
             if (functionName == "float") return FLOAT;
-            if (functionName == "string") return STRING;
+            if (functionName == "string") return GetStringType();
             if (functionName == "bool") return BOOL;
-            if (functionName == "char") return CHAR;
+            if (functionName == "char") return GetCharType();
         }
 
         AddError("Unknown built-in function '" + functionName + "'");

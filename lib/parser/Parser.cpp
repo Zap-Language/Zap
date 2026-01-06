@@ -166,11 +166,11 @@ namespace ast {
             case Token::FloatType:
                 return ast::FLOAT;
             case Token::StringType:
-                return ast::STRING;
+                return ast::GetStringType();
             case Token::BoolType:
                 return ast::BOOL;
             case Token::CharType:
-                return ast::CHAR;
+                return ast::GetCharType();
             case Token::LBracket: {
                 if (!ExpectPeek(Token::RBracket)) {
                     return nullptr;

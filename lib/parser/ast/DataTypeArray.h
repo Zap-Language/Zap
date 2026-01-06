@@ -30,7 +30,7 @@ namespace ast {
     }
 
     inline std::string DataTypeArray::String() {
-        return "[]" + itemType->String();
+        return "[]" + (itemType ? itemType->String() : "unknown");
     }
 }
 

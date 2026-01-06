@@ -6,27 +6,45 @@
 #include "lib/parser/SemanticAnalyzer.h"
 #include "lib/bytecode/compiler.h"
 #include "lib/bytecode/disassembler.h"
-#include "jit/vm.h"
-#include "jit/jit.h"
-
-using namespace jit;
 
 int main(int argc, char **argv) {
     if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <file>" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <input_file> [-o <output_file>]" << std::endl;
         return 1;
     }
 
-    std::ifstream ifs(argv[1]);
-    if (!ifs.is_open()) {
-        std::cerr << "Error: Cannot open file " << argv[1] << std::endl;
+    std::string inputPath = "";
+    std::string outputPath = "output.bc"; // Имя по умолчанию
+
+    // Парсим аргументы командной строки
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "-o") {
+            if (i + 1 < argc) {
+                outputPath = argv[++i];
+            } else {
+                std::cerr << "Error: -o requires an argument" << std::endl;
+                return 1;
+            }
+        } else if (inputPath.empty()) {
+            inputPath = arg;
+        }
+    }
+
+    if (inputPath.empty()) {
+        std::cerr << "Error: No input file specified" << std::endl;
         return 1;
     }
-    
-    std::istreambuf_iterator<char> begin(ifs);
-    std::istreambuf_iterator<char> end;
-    std::string input(begin, end);
-    
+
+    // Чтение исходного кода
+    std::ifstream ifs(inputPath);
+    if (!ifs.is_open()) {
+        std::cerr << "Error: Cannot open file " << inputPath << std::endl;
+        return 1;
+    }
+
+    std::string input((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+
     if (input.empty()) {
         std::cerr << "Error: File is empty" << std::endl;
         return 1;
@@ -37,52 +55,35 @@ int main(int argc, char **argv) {
     auto program = parser.ParseProgram();
 
     if (!parser._errors.empty()) {
-        std::cerr << "Parse errors:" << std::endl;
         parser.PrintErrors();
-        return 1;
-    }
-
-    if (!program) {
-        std::cerr << "Failed to parse program" << std::endl;
         return 1;
     }
 
     ast::SemanticAnalyzer analyzer;
     std::shared_ptr<ast::Program> sharedProgram(program.release());
-    bool success = analyzer.AnalyzeProgram(sharedProgram);
-
-    if (!analyzer.GetErrors().empty()) {
-        std::cerr << "Semantic errors:" << std::endl;
+    if (!analyzer.AnalyzeProgram(sharedProgram)) {
         analyzer.PrintErrors();
-        return 1;
-    }
-
-    if (!success) {
-        std::cerr << "Semantic analysis failed" << std::endl;
         return 1;
     }
 
     bytecode::Compiler compiler;
     auto chunk = compiler.Compile(*sharedProgram);
-    
+
     if (!chunk) {
         std::cerr << "Failed to compile program" << std::endl;
         return 1;
     }
 
-    VM vm;
-    JITCompiler jit(&vm);
-    vm.setJITCompiler(&jit);
-    vm.loadChunk(std::move(chunk));
-    vm.run();
-    
-    if (vm.getStatus() != VM::Status::OK) {
-        std::cerr << "Runtime error occurred" << std::endl;
+    // --- Сохранение байт-кода ---
+    std::ofstream ofs(outputPath, std::ios::binary);
+    if (!ofs.is_open()) {
+        std::cerr << "Error: Cannot open output file " << outputPath << std::endl;
         return 1;
     }
-    
-    std::cout << std::endl;
-    std::cout << "Program executed successfully!" << std::endl;
-    
+
+    chunk->Serialize(ofs);
+
+    std::cout << "Successfully compiled '" << inputPath << "' to '" << outputPath << "'" << std::endl;
+
     return 0;
 }

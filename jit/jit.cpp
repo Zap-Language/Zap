@@ -416,13 +416,13 @@ bool JITCompiler::generateInstruction(bytecode::OpCode op, size_t& codeOffset,
                             result = a.asChar != b.asChar;
                         }
                     }
-                    vmPtr->stack.push_back(Value(result));
+                    vmPtr->stack.emplace_back(result);
                 }
             });
             break;
         }
         case bytecode::OpCode::CMP_LT: {
-            code.push_back([vmPtr]() {
+            code.emplace_back([vmPtr]() {
                 if (vmPtr->stack.size() >= 2) {
                     Value b = vmPtr->stack.back();
                     vmPtr->stack.pop_back();
@@ -434,13 +434,13 @@ bool JITCompiler::generateInstruction(bytecode::OpCode op, size_t& codeOffset,
                     } else if (a.type == bytecode::ValueType::FLOAT && b.type == bytecode::ValueType::FLOAT) {
                         result = a.asFloat < b.asFloat;
                     }
-                    vmPtr->stack.push_back(Value(result));
+                    vmPtr->stack.emplace_back(result);
                 }
             });
             break;
         }
         case bytecode::OpCode::CMP_GT: {
-            code.push_back([vmPtr]() {
+            code.emplace_back([vmPtr]() {
                 if (vmPtr->stack.size() >= 2) {
                     Value b = vmPtr->stack.back();
                     vmPtr->stack.pop_back();
@@ -452,17 +452,17 @@ bool JITCompiler::generateInstruction(bytecode::OpCode op, size_t& codeOffset,
                     } else if (a.type == bytecode::ValueType::FLOAT && b.type == bytecode::ValueType::FLOAT) {
                         result = a.asFloat > b.asFloat;
                     }
-                    vmPtr->stack.push_back(Value(result));
+                    vmPtr->stack.emplace_back(result);
                 }
             });
             break;
         }
         case bytecode::OpCode::CMP_LE: {
-            code.push_back([vmPtr]() {
+            code.emplace_back([vmPtr] {
                 if (vmPtr->stack.size() >= 2) {
-                    Value b = vmPtr->stack.back();
+                    const Value b = vmPtr->stack.back();
                     vmPtr->stack.pop_back();
-                    Value a = vmPtr->stack.back();
+                    const Value a = vmPtr->stack.back();
                     vmPtr->stack.pop_back();
                     bool result = false;
                     if (a.type == bytecode::ValueType::INT && b.type == bytecode::ValueType::INT) {
@@ -470,17 +470,17 @@ bool JITCompiler::generateInstruction(bytecode::OpCode op, size_t& codeOffset,
                     } else if (a.type == bytecode::ValueType::FLOAT && b.type == bytecode::ValueType::FLOAT) {
                         result = a.asFloat <= b.asFloat;
                     }
-                    vmPtr->stack.push_back(Value(result));
+                    vmPtr->stack.emplace_back(result);
                 }
             });
             break;
         }
         case bytecode::OpCode::CMP_GE: {
-            code.push_back([vmPtr]() {
+            code.emplace_back([vmPtr]() {
                 if (vmPtr->stack.size() >= 2) {
-                    Value b = vmPtr->stack.back();
+                    const Value b = vmPtr->stack.back();
                     vmPtr->stack.pop_back();
-                    Value a = vmPtr->stack.back();
+                    const Value a = vmPtr->stack.back();
                     vmPtr->stack.pop_back();
                     bool result = false;
                     if (a.type == bytecode::ValueType::INT && b.type == bytecode::ValueType::INT) {
@@ -488,7 +488,7 @@ bool JITCompiler::generateInstruction(bytecode::OpCode op, size_t& codeOffset,
                     } else if (a.type == bytecode::ValueType::FLOAT && b.type == bytecode::ValueType::FLOAT) {
                         result = a.asFloat >= b.asFloat;
                     }
-                    vmPtr->stack.push_back(Value(result));
+                    vmPtr->stack.emplace_back(result);
                 }
             });
             break;
@@ -497,7 +497,6 @@ bool JITCompiler::generateInstruction(bytecode::OpCode op, size_t& codeOffset,
         case bytecode::OpCode::JMP:
         case bytecode::OpCode::JMP_IF_FALSE:
         case bytecode::OpCode::JMP_IF_TRUE: {
-            chunkPtr->ReadUint32(codeOffset);
             codeOffset += 4;
             return false;
         }
@@ -507,7 +506,7 @@ bool JITCompiler::generateInstruction(bytecode::OpCode op, size_t& codeOffset,
             codeOffset += 4;
             uint8_t argCount = chunkPtr->ReadByte(codeOffset);
             codeOffset += 1;
-            code.push_back([vmPtr, functionIndex, argCount]() {
+            code.emplace_back([vmPtr] {
                 vmPtr->call();
             });
             break;
@@ -517,7 +516,7 @@ bool JITCompiler::generateInstruction(bytecode::OpCode op, size_t& codeOffset,
             codeOffset += 1;
             uint8_t argCount = chunkPtr->ReadByte(codeOffset);
             codeOffset += 1;
-            code.push_back([vmPtr, builtinIndex, argCount]() {
+            code.emplace_back([vmPtr] {
                 vmPtr->callBuiltin();
             });
             break;

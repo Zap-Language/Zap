@@ -3,7 +3,6 @@
 #include "obj.h"
 #include "value.h"
 #include <vector>
-#include <cstddef>
 
 namespace jit {
 
@@ -22,8 +21,8 @@ public:
         
         obj->next = objects;
         objects = obj;
-        
-        size_t objSize = calculateObjectSize(obj);
+
+        const size_t objSize = calculateObjectSize(obj);
         bytesAllocated += objSize;
         objectCount++;
         
@@ -44,9 +43,9 @@ public:
 
     void collect();
 
-    size_t getBytesAllocated() const { return bytesAllocated; }
-    size_t getObjectCount() const { return objectCount; }
-    size_t getNextGC() const { return nextGC; }
+    [[nodiscard]] size_t getBytesAllocated() const { return bytesAllocated; }
+    [[nodiscard]] size_t getObjectCount() const { return objectCount; }
+    [[nodiscard]] size_t getNextGC() const { return nextGC; }
 
 private:
     Obj* objects;
@@ -60,17 +59,17 @@ private:
     static constexpr size_t INITIAL_GC_THRESHOLD = 1024 * 1024;
     static constexpr size_t GC_GROWTH_FACTOR = 2;
 
-    bool shouldCollect() const {
+    [[nodiscard]] bool shouldCollect() const {
         return bytesAllocated >= nextGC;
     }
 
-    void markReachable();
+    void markReachable() const;
 
     void sweep();
 
     void collectGarbage(const std::vector<Value*>& rootValues);
 
-    size_t calculateObjectSize(Obj* obj);
+    static size_t calculateObjectSize(Obj* obj);
 };
 
 }

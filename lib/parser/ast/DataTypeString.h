@@ -9,7 +9,7 @@
 namespace ast {
     struct DataTypeString final : public DataTypeArray {
         explicit DataTypeString()
-            : DataTypeArray(ast::CHAR) {
+            : DataTypeArray(ast::GetCharType()) {
         }
 
         inline ~DataTypeString() override;
@@ -23,7 +23,10 @@ namespace ast {
         return ast::String;
     }
 
-    const auto STRING = std::make_shared<DataTypeString>();
+    inline std::shared_ptr<DataTypeString> GetStringType() {
+        static auto instance = std::make_shared<DataTypeString>();
+        return instance;
+    }
 }
 
 #endif //ZAP_DATATYPESTRING_H

@@ -2,7 +2,6 @@
 #include "obj_string.h"
 #include "obj_array.h"
 #include "obj_function.h"
-#include <algorithm>
 #include <vector>
 
 namespace jit {
@@ -15,9 +14,9 @@ GarbageCollector::GarbageCollector()
 }
 
 GarbageCollector::~GarbageCollector() {
-    Obj* current = objects;
+    const Obj* current = objects;
     while (current != nullptr) {
-        Obj* next = current->next;
+        const Obj* next = current->next;
         delete current;
         current = next;
     }
@@ -33,7 +32,7 @@ void GarbageCollector::collectGarbage(const std::vector<Value*>& rootValues) {
     nextGC = bytesAllocated * GC_GROWTH_FACTOR;
 }
 
-void GarbageCollector::markReachable() {
+void GarbageCollector::markReachable() const {
     Obj* current = objects;
     while (current != nullptr) {
         current->marked = false;
@@ -42,7 +41,7 @@ void GarbageCollector::markReachable() {
 
     std::vector<Obj*> workList;
     
-    for (Value* root : roots) {
+    for (const Value* root : roots) {
         if (root && root->isObj() && root->asObj && !root->asObj->marked) {
             root->asObj->marked = true;
             workList.push_back(root->asObj);
@@ -54,8 +53,7 @@ void GarbageCollector::markReachable() {
         workList.pop_back();
 
         if (obj->type == Obj::Type::ARRAY) {
-            ObjArray* arr = static_cast<ObjArray*>(obj);
-            for (auto& elem : arr->elements) {
+            for (auto* arr = dynamic_cast<ObjArray*>(obj); auto& elem : arr->elements) {
                 if (elem.isObj() && elem.asObj && !elem.asObj->marked) {
                     elem.asObj->marked = true;
                     workList.push_back(elem.asObj);
@@ -91,11 +89,11 @@ void GarbageCollector::sweep() {
 size_t GarbageCollector::calculateObjectSize(Obj* obj) {
     switch (obj->type) {
         case Obj::Type::STRING: {
-            ObjString* str = static_cast<ObjString*>(obj);
+            auto* str = dynamic_cast<ObjString*>(obj);
             return sizeof(ObjString) + str->length + 1;
         }
         case Obj::Type::ARRAY: {
-            ObjArray* arr = static_cast<ObjArray*>(obj);
+            auto* arr = dynamic_cast<ObjArray*>(obj);
             return sizeof(ObjArray) + arr->elements.size() * sizeof(Value);
         }
         case Obj::Type::FUNCTION: {

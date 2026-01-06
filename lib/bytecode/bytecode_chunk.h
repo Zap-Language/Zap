@@ -7,8 +7,20 @@
 #include <string>
 #include <cstdint>
 #include <cstring>
+#include <istream>
+#include <memory>
 
 namespace bytecode {
+
+template<typename T>
+void writeRaw(std::ostream& os, const T& value) {
+    os.write(reinterpret_cast<const char*>(&value), sizeof(T));
+}
+
+template<typename T>
+void readRaw(std::istream& is, T& value) {
+    is.read(reinterpret_cast<char*>(&value), sizeof(T));
+}
 
 struct FunctionInfo {
     std::string name;                  
@@ -126,10 +138,118 @@ public:
         return value;
     }
 
+    void Serialize(std::ostream& os) const {
+        // 1. Заголовок (Magic Number), чтобы отличать наш файл
+        uint32_t magic = 0x42434F44; // "BCOD"
+        writeRaw(os, magic);
+
+        // 2. Сериализация байт-кода (_code)
+        uint32_t codeSize = static_cast<uint32_t>(_code.size());
+        writeRaw(os, codeSize);
+        os.write(reinterpret_cast<const char*>(_code.data()), codeSize);
+
+        // 3. Сериализация строк (_strings)
+        uint32_t stringCount = static_cast<uint32_t>(_strings.size());
+        writeRaw(os, stringCount);
+        for (const auto& s : _strings) {
+            uint32_t len = static_cast<uint32_t>(s.length());
+            writeRaw(os, len);
+            os.write(s.data(), len);
+        }
+
+        // 4. Сериализация информации о функциях (_functions)
+        uint32_t funcCount = static_cast<uint32_t>(_functions.size());
+        writeRaw(os, funcCount);
+        for (const auto& f : _functions) {
+            // Имя функции
+            uint32_t nameLen = static_cast<uint32_t>(f.name.length());
+            writeRaw(os, nameLen);
+            os.write(f.name.data(), nameLen);
+
+            // Основные поля
+            writeRaw(os, f.codeOffset);
+            writeRaw(os, f.codeLength);
+            writeRaw(os, f.paramCount);
+            writeRaw(os, f.localCount);
+            writeRaw(os, f.returnType);
+
+            // Вектор типов параметров (paramTypes)
+            uint32_t paramTypesSize = static_cast<uint32_t>(f.paramTypes.size());
+            writeRaw(os, paramTypesSize);
+            for (const auto& type : f.paramTypes) {
+                writeRaw(os, type);
+            }
+        }
+    }
+
+    static std::unique_ptr<BytecodeChunk> Deserialize(std::istream& is) {
+        auto chunk = std::make_unique<BytecodeChunk>();
+
+        // 1. Проверка заголовка
+        uint32_t magic;
+        readRaw(is, magic);
+        if (magic != 0x42434F44) {
+            throw std::runtime_error("Invalid bytecode format (magic number mismatch)");
+        }
+
+        // 2. Читаем байт-код
+        uint32_t codeSize;
+        readRaw(is, codeSize);
+        chunk->_code.resize(codeSize);
+        is.read(reinterpret_cast<char*>(chunk->_code.data()), codeSize);
+
+        // 3. Читаем строки
+        uint32_t stringCount;
+        readRaw(is, stringCount);
+        chunk->_strings.reserve(stringCount);
+        for (uint32_t i = 0; i < stringCount; ++i) {
+            uint32_t len;
+            readRaw(is, len);
+            std::string s(len, '\0');
+            is.read(&s[0], len);
+            chunk->_strings.push_back(std::move(s));
+        }
+
+        // 4. Читаем функции
+        uint32_t funcCount;
+        readRaw(is, funcCount);
+        chunk->_functions.reserve(funcCount);
+        for (uint32_t i = 0; i < funcCount; ++i) {
+            FunctionInfo f;
+
+            // Имя
+            uint32_t nameLen;
+            readRaw(is, nameLen);
+            f.name.resize(nameLen);
+            is.read(&f.name[0], nameLen);
+
+            // Поля
+            readRaw(is, f.codeOffset);
+            readRaw(is, f.codeLength);
+            readRaw(is, f.paramCount);
+            readRaw(is, f.localCount);
+            readRaw(is, f.returnType);
+
+            // Типы параметров
+            uint32_t paramTypesSize;
+            readRaw(is, paramTypesSize);
+            f.paramTypes.resize(paramTypesSize);
+            for (uint32_t j = 0; j < paramTypesSize; ++j) {
+                readRaw(is, f.paramTypes[j]);
+            }
+
+            chunk->_functions.push_back(std::move(f));
+        }
+
+        return chunk;
+    }
+
 private:
-    std::vector<uint8_t> _code;          
-    std::vector<std::string> _strings;   
+    std::vector<uint8_t> _code;
+    std::vector<std::string> _strings;
     std::vector<FunctionInfo> _functions;
 };
+
+
 
 }

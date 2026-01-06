@@ -24,7 +24,10 @@ namespace ast {
         return "char ";
     }
 
-    const auto CHAR = std::make_shared<DataTypeChar>();
+    inline std::shared_ptr<DataTypeChar> GetCharType() {
+        static auto instance = std::make_shared<DataTypeChar>();
+        return instance;
+    }
 }
 
 #endif //ZAP_DATATYPECHAR_H
