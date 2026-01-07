@@ -13,18 +13,19 @@ target_link_libraries(jit_lib
     PUBLIC bytecode
     PUBLIC parser
     PUBLIC lexer
+    PUBLIC magic_enum::magic_enum
 )
 
-add_executable(jit
+add_executable(zap
     main.cpp
 )
 
-target_include_directories(jit PRIVATE 
+target_include_directories(zap PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/lib
 )
 
-target_link_libraries(jit
+target_link_libraries(zap
     PRIVATE jit_lib
 )
 

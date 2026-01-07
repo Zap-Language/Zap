@@ -43,7 +43,7 @@ public:
 
     [[nodiscard]] Status getStatus() const { return status; }
 
-    static constexpr size_t STACK_MAX = 256;
+    static constexpr size_t STACK_MAX = 2048;
     std::vector<Value> stack;
     std::vector<Value> globals;
     std::stack<CallFrame> callStack;

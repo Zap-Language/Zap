@@ -379,6 +379,16 @@ namespace ast {
             return nullptr;
         }
 
+        auto count = AnalyzeExpression(arrayLit->count);
+        if (!count) {
+            return nullptr;
+        }
+
+        if (count->Type() != Int) {
+            AddError("Array literal size type expected to be int");
+            return nullptr;
+        }
+
         if (arrayLit->elements.empty()) {
             if (arrayLit->elementType) {
                 return std::make_shared<DataTypeArray>(arrayLit->elementType);
@@ -392,7 +402,6 @@ namespace ast {
             return nullptr;
         }
 
-        // Validate declared element type if present
         if (arrayLit->elementType && !TypesCompatible(arrayLit->elementType, firstType)) {
             AddError("Array literal element does not match declared type " + arrayLit->elementType->String());
             return nullptr;
@@ -775,7 +784,6 @@ namespace ast {
             return false;
         }
 
-        // Target can be identifier or index expression
         if (auto ident = std::dynamic_pointer_cast<Identifier>(assign->target)) {
             auto varType = symbolTable.LookupVariable(ident->TokenLiteral());
             if (!varType) {

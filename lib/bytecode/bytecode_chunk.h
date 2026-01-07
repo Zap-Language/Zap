@@ -138,16 +138,13 @@ public:
     }
 
     void Serialize(std::ostream& os) const {
-        // 1. Заголовок (Magic Number), чтобы отличать наш файл
-        uint32_t magic = 0x42434F44; // "BCOD"
+        uint32_t magic = 0x42434F44;
         writeRaw(os, magic);
 
-        // 2. Сериализация байт-кода (_code)
         const auto codeSize = static_cast<uint32_t>(_code.size());
         writeRaw(os, codeSize);
         os.write(reinterpret_cast<const char*>(_code.data()), codeSize);
 
-        // 3. Сериализация строк (_strings)
         const auto stringCount = static_cast<uint32_t>(_strings.size());
         writeRaw(os, stringCount);
         for (const auto& s : _strings) {
@@ -156,23 +153,19 @@ public:
             os.write(s.data(), len);
         }
 
-        // 4. Сериализация информации о функциях (_functions)
         auto funcCount = static_cast<uint32_t>(_functions.size());
         writeRaw(os, funcCount);
         for (const auto& f : _functions) {
-            // Имя функции
             auto nameLen = static_cast<uint32_t>(f.name.length());
             writeRaw(os, nameLen);
             os.write(f.name.data(), nameLen);
 
-            // Основные поля
             writeRaw(os, f.codeOffset);
             writeRaw(os, f.codeLength);
             writeRaw(os, f.paramCount);
             writeRaw(os, f.localCount);
             writeRaw(os, f.returnType);
 
-            // Вектор типов параметров (paramTypes)
             auto paramTypesSize = static_cast<uint32_t>(f.paramTypes.size());
             writeRaw(os, paramTypesSize);
             for (const auto& type : f.paramTypes) {
@@ -184,20 +177,17 @@ public:
     static std::unique_ptr<BytecodeChunk> Deserialize(std::istream& is) {
         auto chunk = std::make_unique<BytecodeChunk>();
 
-        // 1. Проверка заголовка
         uint32_t magic;
         readRaw(is, magic);
         if (magic != 0x42434F44) {
             throw std::runtime_error("Invalid bytecode format (magic number mismatch)");
         }
 
-        // 2. Читаем байт-код
         uint32_t codeSize;
         readRaw(is, codeSize);
         chunk->_code.resize(codeSize);
         is.read(reinterpret_cast<char*>(chunk->_code.data()), codeSize);
 
-        // 3. Читаем строки
         uint32_t stringCount;
         readRaw(is, stringCount);
         chunk->_strings.reserve(stringCount);
@@ -209,27 +199,23 @@ public:
             chunk->_strings.push_back(std::move(s));
         }
 
-        // 4. Читаем функции
         uint32_t funcCount;
         readRaw(is, funcCount);
         chunk->_functions.reserve(funcCount);
         for (uint32_t i = 0; i < funcCount; ++i) {
             FunctionInfo f;
 
-            // Имя
             uint32_t nameLen;
             readRaw(is, nameLen);
             f.name.resize(nameLen);
             is.read(&f.name[0], nameLen);
 
-            // Поля
             readRaw(is, f.codeOffset);
             readRaw(is, f.codeLength);
             readRaw(is, f.paramCount);
             readRaw(is, f.localCount);
             readRaw(is, f.returnType);
 
-            // Типы параметров
             uint32_t paramTypesSize;
             readRaw(is, paramTypesSize);
             f.paramTypes.resize(paramTypesSize);

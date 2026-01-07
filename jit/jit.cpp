@@ -4,10 +4,10 @@
 
 namespace jit {
 
-JITCompiler::JITCompiler(VM* vmPtr) : vm(vmPtr) {
+JITCompiler::JITCompiler(VM* vm) : vm(vm) {
 }
 
-void JITCompiler::incrementCallCount(uint32_t functionIndex) {
+void JITCompiler::incrementCallCount(const uint32_t functionIndex) {
     callCounts[functionIndex]++;
     
     if (isHotFunction(functionIndex) &&

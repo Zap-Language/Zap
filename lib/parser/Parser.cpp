@@ -30,7 +30,7 @@ namespace ast {
         _prefixParseFunction.emplace(Token::True, [this] { return ParseBoolLiteral(); });
         _prefixParseFunction.emplace(Token::False, [this] { return ParseBoolLiteral(); });
         _prefixParseFunction.emplace(Token::Apostrophe, [this] { return ParseCharLiteral(); });
-        _prefixParseFunction.emplace(Token::Quote, [this] { return ParseStringLiteral();});
+        _prefixParseFunction.emplace(Token::Quote, [this] { return ParseStringLiteral(); });
         _prefixParseFunction.emplace(Token::Bang, [this] { return ParsePrefixExpression(); });
         _prefixParseFunction.emplace(Token::Minus, [this] { return ParsePrefixExpression(); });
         _prefixParseFunction.emplace(Token::Func, [this] { return ParseFuncExpression(); });
@@ -44,19 +44,45 @@ namespace ast {
         _prefixParseFunction.emplace(Token::IntType, [this] { return ParseIdentifier(nullptr); });
 
         // Infix parsers preparation
-        _infixParseFunction.emplace(Token::Plus, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
-        _infixParseFunction.emplace(Token::Minus, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
-        _infixParseFunction.emplace(Token::Asterisk, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
-        _infixParseFunction.emplace(Token::Slash, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
-        _infixParseFunction.emplace(Token::Percent, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
-        _infixParseFunction.emplace(Token::Or, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
-        _infixParseFunction.emplace(Token::And, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
-        _infixParseFunction.emplace(Token::Equal, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
-        _infixParseFunction.emplace(Token::NotEqual, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
-        _infixParseFunction.emplace(Token::Less, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
-        _infixParseFunction.emplace(Token::Greater, [this] (const std::shared_ptr<ExpressionNode> &rightExpression) { return ParseInfixExpression(rightExpression); });
-        _infixParseFunction.emplace(Token::LParen, [this](const std::shared_ptr<ExpressionNode> &leftExpression) { return ParseCallExpression(leftExpression); });
-        _infixParseFunction.emplace(Token::LBracket, [this](const std::shared_ptr<ExpressionNode> &leftExpression) { return ParseIndexExpression(leftExpression); });
+        _infixParseFunction.emplace(Token::Plus, [this](const std::shared_ptr<ExpressionNode> &rightExpression) {
+            return ParseInfixExpression(rightExpression);
+        });
+        _infixParseFunction.emplace(Token::Minus, [this](const std::shared_ptr<ExpressionNode> &rightExpression) {
+            return ParseInfixExpression(rightExpression);
+        });
+        _infixParseFunction.emplace(Token::Asterisk, [this](const std::shared_ptr<ExpressionNode> &rightExpression) {
+            return ParseInfixExpression(rightExpression);
+        });
+        _infixParseFunction.emplace(Token::Slash, [this](const std::shared_ptr<ExpressionNode> &rightExpression) {
+            return ParseInfixExpression(rightExpression);
+        });
+        _infixParseFunction.emplace(Token::Percent, [this](const std::shared_ptr<ExpressionNode> &rightExpression) {
+            return ParseInfixExpression(rightExpression);
+        });
+        _infixParseFunction.emplace(Token::Or, [this](const std::shared_ptr<ExpressionNode> &rightExpression) {
+            return ParseInfixExpression(rightExpression);
+        });
+        _infixParseFunction.emplace(Token::And, [this](const std::shared_ptr<ExpressionNode> &rightExpression) {
+            return ParseInfixExpression(rightExpression);
+        });
+        _infixParseFunction.emplace(Token::Equal, [this](const std::shared_ptr<ExpressionNode> &rightExpression) {
+            return ParseInfixExpression(rightExpression);
+        });
+        _infixParseFunction.emplace(Token::NotEqual, [this](const std::shared_ptr<ExpressionNode> &rightExpression) {
+            return ParseInfixExpression(rightExpression);
+        });
+        _infixParseFunction.emplace(Token::Less, [this](const std::shared_ptr<ExpressionNode> &rightExpression) {
+            return ParseInfixExpression(rightExpression);
+        });
+        _infixParseFunction.emplace(Token::Greater, [this](const std::shared_ptr<ExpressionNode> &rightExpression) {
+            return ParseInfixExpression(rightExpression);
+        });
+        _infixParseFunction.emplace(Token::LParen, [this](const std::shared_ptr<ExpressionNode> &leftExpression) {
+            return ParseCallExpression(leftExpression);
+        });
+        _infixParseFunction.emplace(Token::LBracket, [this](const std::shared_ptr<ExpressionNode> &leftExpression) {
+            return ParseIndexExpression(leftExpression);
+        });
 
         _precedence.emplace(Token::Or, OR);
         _precedence.emplace(Token::And, AND);
@@ -95,7 +121,7 @@ namespace ast {
             std::cout << std::string(8, '=') << "ERRORS:" << std::string(8, '=') << std::endl;
         }
 
-        for (const auto& error : _errors) {
+        for (const auto &error: _errors) {
             std::cout << error << std::endl;
         }
 
@@ -124,7 +150,6 @@ namespace ast {
             case Token::LBrace:
                 return ParseBlockStatement();
             default:
-                // assignment: ident = ... or ident[...] = ...
                 if (CurrentTokenIs(Token::Ident)) {
                     if (PeekTokenIs(Token::Assign) || PeekTokenIs(Token::LBracket)) {
                         return ParseAssignStatement();
@@ -202,9 +227,9 @@ namespace ast {
 
     bool Parser::ExpectPeek(const Token::TokenType tokenType) {
         if (_peekToken.tokenType != tokenType) {
-            auto tokenName =  magic_enum::enum_name(tokenType);
-            auto peekTokenName =  magic_enum::enum_name(_peekToken.tokenType);
-           _errors.emplace_back("peek expected " + std::string(tokenName) + ", got: " + std::string(peekTokenName));
+            auto tokenName = magic_enum::enum_name(tokenType);
+            auto peekTokenName = magic_enum::enum_name(_peekToken.tokenType);
+            _errors.emplace_back("peek expected " + std::string(tokenName) + ", got: " + std::string(peekTokenName));
             return false;
         }
 
@@ -345,19 +370,16 @@ namespace ast {
 
     std::shared_ptr<AssignStatement> Parser::ParseAssignStatement() {
         auto stmt = std::make_shared<AssignStatement>();
-        // Parse assignment target: identifier or index expression
         if (!CurrentTokenIs(Token::Ident)) {
             _errors.emplace_back("assignment target must start with identifier");
             return nullptr;
         }
 
-        // Simple identifier
         auto ident = ParseIdentifier(nullptr);
         std::shared_ptr<ExpressionNode> target = ident;
 
-        // Index assignment: ident '[' ... ']'
         if (PeekTokenIs(Token::LBracket)) {
-            NextToken(); // move to '['
+            NextToken();
             target = ParseIndexExpression(ident);
             if (!target) {
                 return nullptr;
@@ -368,8 +390,8 @@ namespace ast {
             return nullptr;
         }
 
-        stmt->token = _currentToken; // '='
-        NextToken(); // move to expression after '='
+        stmt->token = _currentToken;
+        NextToken();
         stmt->target = target;
         stmt->expression = ParseExpression(LOWEST);
         if (stmt->expression == nullptr) {
@@ -491,7 +513,8 @@ namespace ast {
 
     std::shared_ptr<ExpressionNode> Parser::ParseExpression(const Precedence precedence) {
         if (!_prefixParseFunction.contains(_currentToken.tokenType)) {
-            _errors.emplace_back("function expected for " + std::string(magic_enum::enum_name(_currentToken.tokenType)));
+            _errors.emplace_back(
+                "function expected for " + std::string(magic_enum::enum_name(_currentToken.tokenType)));
             return nullptr;
         }
 
@@ -499,7 +522,8 @@ namespace ast {
         std::shared_ptr<ExpressionNode> leftExpression = prefix();
         while (!PeekTokenIs(Token::NewLine) && !PeekTokenIs(Token::Eof) && precedence < PeekPrecedence()) {
             if (!_infixParseFunction.contains(_peekToken.tokenType)) {
-                _errors.emplace_back("no infix function for " + std::string(magic_enum::enum_name(_peekToken.tokenType)));
+                _errors.emplace_back(
+                    "no infix function for " + std::string(magic_enum::enum_name(_peekToken.tokenType)));
                 return nullptr;
             }
             auto infix = _infixParseFunction.at(_peekToken.tokenType);
@@ -588,7 +612,6 @@ namespace ast {
             return nullptr;
         }
 
-        NextToken();
         return expression;
     }
 
@@ -622,40 +645,23 @@ namespace ast {
         }
 
         NextToken();
-        if (!CurrentTokenIs(Token::LBrace)) {
-            _errors.emplace_back("array literal expected '{', got: " + _currentToken.tokenLiteral);
-            return nullptr;
-        }
-
-        if (PeekTokenIs(Token::RBrace)) {
+        if (CurrentTokenIs(Token::LParen)) {
             NextToken();
+
+            literal->count = ParseExpression(LOWEST);
+            if (!ExpectPeek(Token::RParen)) {
+                return nullptr;
+            }
+
             return literal;
         }
 
-        NextToken();
-        literal->elements.emplace_back(ParseExpression(LOWEST));
-        if (*literal->elements.rbegin() == nullptr) {
-            return nullptr;
-        }
-
-        while (PeekTokenIs(Token::Comma)) {
-            NextToken();
-            NextToken();
-            literal->elements.emplace_back(ParseExpression(LOWEST));
-            if (*literal->elements.rbegin() == nullptr) {
-                return nullptr;
-            }
-        }
-
-        if (!ExpectPeek(Token::RBrace)) {
-            return nullptr;
-        }
-
-        return literal;
+        _errors.emplace_back("array literal expected '{', got: " + _currentToken.tokenLiteral);
+        return nullptr;
     }
 
-    std::vector<std::shared_ptr<ExpressionNode>> Parser::ParseCallArguments() {
-        std::vector<std::shared_ptr<ExpressionNode>> argumentList;
+    std::vector<std::shared_ptr<ExpressionNode> > Parser::ParseCallArguments() {
+        std::vector<std::shared_ptr<ExpressionNode> > argumentList;
         if (CurrentTokenIs(Token::RParen)) {
             return argumentList;
         }
@@ -674,6 +680,7 @@ namespace ast {
             }
         }
 
+        NextToken();
         return argumentList;
     }
 

@@ -504,8 +504,13 @@ void VM::jumpIfFalse() {
     auto offset = static_cast<int32_t>(chunk->ReadUint32(ip));
     ip += 4;
     
-    Value condition = peek();
-    if (condition.type == bytecode::ValueType::BOOL && !condition.asBool) {
+    Value condition = pop();
+    if (condition.type != bytecode::ValueType::BOOL) {
+        status = Status::RUNTIME_ERROR;
+        return;
+    }
+
+    if (!condition.asBool) {
         ip = static_cast<size_t>(offset);
     }
 }
@@ -619,11 +624,14 @@ void VM::returnVoid() {
 
 void VM::newArray() {
     ip += 1;
-    uint32_t size = chunk->ReadUint32(ip);
-    ip += 4;
-    
-    auto* arr = gc.allocate<ObjArray>(size);
-    push(Value(arr));
+    auto sizeVal = pop();
+    if (sizeVal.type == bytecode::ValueType::INT) {
+        auto size = static_cast<size_t>(sizeVal.asInt);
+        auto* arr = gc.allocate<ObjArray>(size);
+        push(Value(arr));
+    } else {
+        status = Status::RUNTIME_ERROR;
+    }
 }
 
 void VM::arrayGet() {
@@ -787,7 +795,7 @@ void VM::builtinLen() {
 
 void VM::builtinRead() {
     std::string input;
-    std::getline(std::cin, input);
+    std::cin >> input;
     auto* str = gc.allocate<ObjString>(input);
     push(Value(str));
 }

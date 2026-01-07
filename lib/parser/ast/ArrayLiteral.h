@@ -16,6 +16,7 @@ namespace ast {
 
         Token::Token token;
         std::vector<std::shared_ptr<ExpressionNode>> elements;
+        std::shared_ptr<ExpressionNode> count;
         std::shared_ptr<DataType> elementType;
     };
 

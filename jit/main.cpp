@@ -2,6 +2,7 @@
 #include <iostream>
 #include "vm.h"
 #include "jit.h"
+#include <magic_enum/magic_enum.hpp>
 
 using namespace jit;
 
@@ -22,6 +23,10 @@ int main(int argc, const char** argv) {
 
     vm.loadChunk(std::move(chunk));
     vm.run();
+
+    if (vm.getStatus() != jit::VM::Status::OK) {
+        std::cout << magic_enum::enum_name(vm.getStatus()) << std::endl;
+    }
 
     return 0;
 }

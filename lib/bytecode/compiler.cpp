@@ -529,19 +529,9 @@ void Compiler::CompileArrayLiteral(const ast::ArrayLiteral& arr) {
         elemType = ConvertType(*arr.elementType);
     }
 
-    const auto size = static_cast<uint32_t>(arr.elements.size());
-
+    CompileExpression(*arr.count);
     _chunk->EmitOpCode(OpCode::NEW_ARRAY);
     _chunk->EmitByte(static_cast<uint8_t>(elemType));
-    _chunk->EmitUint32(size);
-
-    for (uint32_t i = 0; i < size; ++i) {
-        _chunk->EmitOpCode(OpCode::DUP);
-        _chunk->EmitOpCode(OpCode::PUSH_INT);
-        _chunk->EmitInt64(i);
-        CompileExpression(*arr.elements[i]);
-        _chunk->EmitOpCode(OpCode::ARRAY_SET);
-    }
 }
 
 void Compiler::CompileIndexExpression(const ast::IndexExpression& expr) {
