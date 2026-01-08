@@ -15,6 +15,7 @@
 
 #include "bytecode_chunk.h"
 #include "parser/ast/AssignStatement.h"
+#include "parser/ast/DataTypeVoid.h"
 #include "parser/ast/ElseStatement.h"
 #include "parser/ast/ExpressionStatement.h"
 #include "parser/ast/ForStatement.h"
@@ -492,7 +493,6 @@ void Compiler::CompileInfixExpression(const ast::InfixExpression& expr) {
 
 void Compiler::CompileCallExpression(const ast::CallExpression& expr) {
     std::string funcName;
-
     if (auto* ident = dynamic_cast<ast::Identifier*>(expr.function.get())) {
         funcName = trim(ident->String());
     } else {

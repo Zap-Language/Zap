@@ -273,6 +273,7 @@ namespace ast {
             return nullptr;
         }
 
+        functionId->type = funcDecl->returnType;
         size_t expectedArgs = funcDecl->arguments ? funcDecl->arguments->arguments.size() : 0;
         size_t actualArgs = call->arguments.size();
 

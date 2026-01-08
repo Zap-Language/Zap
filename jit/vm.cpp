@@ -619,6 +619,7 @@ void VM::returnVoid() {
         }
 
         ip = frame.ip;
+        push({});
     }
 }
 
