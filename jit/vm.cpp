@@ -33,13 +33,16 @@ void VM::run() {
     }
 
     const auto& code = chunk->Code();
+    size_t gcCounter = 0;
 
     while (status == Status::OK) {
         if (ip >= code.size()) {
             break;
         }
-        
-        registerRoots();
+
+        if (++gcCounter % 32 == 0) {
+            registerRoots();
+        }
 
         const auto op = static_cast<bytecode::OpCode>(code[ip]);
         ip++;
