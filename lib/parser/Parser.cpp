@@ -35,6 +35,8 @@ namespace ast {
         _prefixParseFunction.emplace(Token::Minus, [this] { return ParsePrefixExpression(); });
         _prefixParseFunction.emplace(Token::Func, [this] { return ParseFuncExpression(); });
         _prefixParseFunction.emplace(Token::LBracket, [this] { return ParseArrayLiteral(); });
+        _prefixParseFunction.emplace(Token::LParen, [this] { return ParseGroupExpression();});
+
         // Built-in functions
         _prefixParseFunction.emplace(Token::Print, [this] { return ParseIdentifier(nullptr); });
         _prefixParseFunction.emplace(Token::Len, [this] { return ParseIdentifier(nullptr); });
@@ -748,5 +750,16 @@ namespace ast {
         }
 
         return stringLiteral;
+    }
+
+    std::shared_ptr<ExpressionNode> Parser::ParseGroupExpression() {
+        NextToken();
+
+        auto expression = ParseExpression(LOWEST);
+        if (!ExpectPeek(Token::RParen)) {
+            return nullptr;
+        }
+
+        return expression;
     }
 } // ast

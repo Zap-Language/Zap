@@ -88,6 +88,8 @@ namespace ast {
         std::shared_ptr<CharLiteral> ParseCharLiteral();
         std::shared_ptr<StringLiteral> ParseStringLiteral();
 
+        std::shared_ptr<ExpressionNode> ParseGroupExpression();
+
         Lexer _lexer;
 
         Token::Token _currentToken;
