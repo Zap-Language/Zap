@@ -155,7 +155,13 @@ std::optional<std::function<void()>> JITCompiler::compileFunction(uint32_t funct
         scan = next2 + 1;
     }
 
-    std::function<void()> compiledFunc = [vmPtr, chunkPtr, funcStart, funcEnd, self, foldTable]() {
+    std::function<void()> compiledFunc = [vmPtr, funcStart, funcEnd, self, foldTable]() {
+        auto* chunkPtr = vmPtr->getChunk();
+        if (!chunkPtr) {
+            vmPtr->status = VM::Status::RUNTIME_ERROR;
+            return;
+        }
+
         auto& code = chunkPtr->Code();
 
         vmPtr->ip = funcStart;
