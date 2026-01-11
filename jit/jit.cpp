@@ -55,14 +55,134 @@ std::optional<std::function<void()>> JITCompiler::compileFunction(uint32_t funct
     VM* vmPtr = vm;
     auto* chunkPtr = vm->getChunk();
 
-    std::function<void()> compiledFunc = [vmPtr, chunkPtr, funcStart, funcEnd, self]() {
+    struct FoldAction {
+        enum class Kind { None, PushInt, PushFloat, Skip } kind{Kind::None};
+        int64_t intVal{};
+        double floatVal{};
+        uint32_t skipBytesAfterOp{0};
+    };
+
+    auto operandSize = [](bytecode::OpCode op) -> uint32_t {
+        switch (op) {
+            case bytecode::OpCode::PUSH_INT:    return 8;
+            case bytecode::OpCode::PUSH_FLOAT:  return 8;
+            case bytecode::OpCode::PUSH_BOOL:   return 1;
+            case bytecode::OpCode::PUSH_CHAR:   return 1;
+            case bytecode::OpCode::PUSH_STRING: return 4;
+            case bytecode::OpCode::PUSH_FUNC:   return 4;
+            case bytecode::OpCode::LOAD_LOCAL:  return 4;
+            case bytecode::OpCode::STORE_LOCAL: return 4;
+            case bytecode::OpCode::LOAD_GLOBAL: return 4;
+            case bytecode::OpCode::STORE_GLOBAL:return 4;
+            case bytecode::OpCode::JMP:         return 4;
+            case bytecode::OpCode::JMP_IF_FALSE:return 4;
+            case bytecode::OpCode::JMP_IF_TRUE: return 4;
+            case bytecode::OpCode::CALL:        return 5;
+            case bytecode::OpCode::CALL_BUILTIN:return 2;
+            case bytecode::OpCode::NEW_ARRAY:   return 5;
+            case bytecode::OpCode::ARRAY_GET:   return 4;
+            case bytecode::OpCode::ARRAY_SET:   return 4;
+            case bytecode::OpCode::CAST_INT:
+            case bytecode::OpCode::CAST_FLOAT:
+            case bytecode::OpCode::CAST_BOOL:
+            case bytecode::OpCode::CAST_CHAR:
+            case bytecode::OpCode::CAST_STRING:
+            default:                            return 0;
+        }
+    };
+
+    std::vector<FoldAction> foldTable(chunkPtr->Code().size());
+
+    size_t scan = funcStart;
+    while (scan < funcEnd && scan < chunkPtr->Code().size()) {
+        const auto op1 = static_cast<bytecode::OpCode>(chunkPtr->Code()[scan]);
+        if (op1 != bytecode::OpCode::PUSH_INT && op1 != bytecode::OpCode::PUSH_FLOAT) {
+            scan += 1 + operandSize(op1);
+            continue;
+        }
+
+        const size_t op1Size = 1 + operandSize(op1);
+        const size_t next1 = scan + op1Size;
+        if (next1 >= funcEnd || next1 >= chunkPtr->Code().size()) {
+            break;
+        }
+
+        const auto op2 = static_cast<bytecode::OpCode>(chunkPtr->Code()[next1]);
+        if (op2 != op1) {
+            scan += 1 + operandSize(op1);
+            continue;
+        }
+
+        const size_t op2Size = 1 + operandSize(op2);
+        const size_t next2 = next1 + op2Size;
+        if (next2 >= funcEnd || next2 >= chunkPtr->Code().size()) {
+            break;
+        }
+
+        const auto op3 = static_cast<bytecode::OpCode>(chunkPtr->Code()[next2]);
+        if (op3 != bytecode::OpCode::ADD && op3 != bytecode::OpCode::SUB && op3 != bytecode::OpCode::MUL) {
+            scan += 1 + operandSize(op1);
+            continue;
+        }
+
+        if (op1 == bytecode::OpCode::PUSH_INT) {
+            int64_t a = chunkPtr->ReadInt64(scan + 1);
+            int64_t b = chunkPtr->ReadInt64(next1 + 1);
+            int64_t r = 0;
+            switch (op3) {
+                case bytecode::OpCode::ADD: r = a + b; break;
+                case bytecode::OpCode::SUB: r = a - b; break;
+                case bytecode::OpCode::MUL: r = a * b; break;
+                default: break;
+            }
+            foldTable[scan] = {FoldAction::Kind::PushInt, r, 0.0, static_cast<uint32_t>(operandSize(op1))};
+        } else {
+            double a = chunkPtr->ReadDouble(scan + 1);
+            double b = chunkPtr->ReadDouble(next1 + 1);
+            double r = 0.0;
+            switch (op3) {
+                case bytecode::OpCode::ADD: r = a + b; break;
+                case bytecode::OpCode::SUB: r = a - b; break;
+                case bytecode::OpCode::MUL: r = a * b; break;
+                default: break;
+            }
+            foldTable[scan] = {FoldAction::Kind::PushFloat, 0, r, static_cast<uint32_t>(operandSize(op1))};
+        }
+
+        foldTable[next1] = {FoldAction::Kind::Skip, 0, 0.0, static_cast<uint32_t>(operandSize(op2))};
+        foldTable[next2] = {FoldAction::Kind::Skip, 0, 0.0, 0};
+
+        scan = next2 + 1;
+    }
+
+    std::function<void()> compiledFunc = [vmPtr, chunkPtr, funcStart, funcEnd, self, foldTable]() {
         auto& code = chunkPtr->Code();
 
         vmPtr->ip = funcStart;
 
         while (vmPtr->status == VM::Status::OK && vmPtr->ip < funcEnd && vmPtr->ip < code.size()) {
-            const auto op = static_cast<bytecode::OpCode>(code[vmPtr->ip]);
+            const size_t instrIndex = vmPtr->ip;
+            const auto op = static_cast<bytecode::OpCode>(code[instrIndex]);
             vmPtr->ip++;
+            const FoldAction action = foldTable[instrIndex];
+            if (action.kind != FoldAction::Kind::None) {
+                switch (action.kind) {
+                    case FoldAction::Kind::PushInt:
+                        vmPtr->push(Value(action.intVal));
+                        vmPtr->ip += action.skipBytesAfterOp;
+                        break;
+                    case FoldAction::Kind::PushFloat:
+                        vmPtr->push(Value(action.floatVal));
+                        vmPtr->ip += action.skipBytesAfterOp;
+                        break;
+                    case FoldAction::Kind::Skip:
+                        vmPtr->ip += action.skipBytesAfterOp;
+                        break;
+                    default:
+                        break;
+                }
+                continue;
+            }
 
             switch (op) {
                 case bytecode::OpCode::PUSH_INT:      vmPtr->pushInt(); break;
