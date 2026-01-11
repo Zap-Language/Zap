@@ -40,9 +40,7 @@ void VM::run() {
             break;
         }
 
-        if (++gcCounter % 32 == 0) {
             registerRoots();
-        }
 
         const auto op = static_cast<bytecode::OpCode>(code[ip]);
         ip++;

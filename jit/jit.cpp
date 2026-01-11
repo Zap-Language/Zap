@@ -41,72 +41,118 @@ std::optional<std::function<void()>> JITCompiler::compileFunction(uint32_t funct
     if (!vm || !vm->getChunk()) {
         return std::nullopt;
     }
-    
+
     const auto& functions = vm->getChunk()->Functions();
     if (functionIndex >= functions.size()) {
         return std::nullopt;
     }
-    
+
     const auto& func = functions[functionIndex];
-    const auto& code = vm->getChunk()->Code();
-    
-    std::vector<std::function<void()>> instructions;
-    
-    size_t codeOffset = func.codeOffset;
-    size_t endOffset = func.codeOffset + func.codeLength;
-    
-    while (codeOffset < endOffset && codeOffset < code.size()) {
-        auto op = static_cast<bytecode::OpCode>(code[codeOffset]);
-        codeOffset++;
-        
-        if (!generateInstruction(op, codeOffset, instructions)) {
-            return std::nullopt;
-        }
-        
-        if (op == bytecode::OpCode::RETURN || op == bytecode::OpCode::RETURN_VOID) {
-            break;
-        }
-    }
-    
-    std::function<void()> compiledFunc;
-    
-    if (instructions.size() == 1) {
-        compiledFunc = instructions[0];
-    } else if (instructions.size() == 2) {
-        auto& instr1 = instructions[0];
-        auto& instr2 = instructions[1];
-        compiledFunc = [instr1, instr2]() {
-            instr1();
-            instr2();
-        };
-    } else if (instructions.size() == 3) {
-        auto& instr1 = instructions[0];
-        auto& instr2 = instructions[1];
-        auto& instr3 = instructions[2];
-        compiledFunc = [instr1, instr2, instr3]() {
-            instr1();
-            instr2();
-            instr3();
-        };
-    } else {
-        if (instructions.size() <= 10) {
-            const std::vector<std::function<void()>>& instrsCopy = instructions;
-            compiledFunc = [instrsCopy]() {
-                for (const auto& instr : instrsCopy) {
-                    instr();
+    const size_t funcStart = func.codeOffset;
+    const size_t funcEnd = func.codeOffset + func.codeLength;
+
+    JITCompiler* self = const_cast<JITCompiler*>(this);
+    VM* vmPtr = vm;
+    auto* chunkPtr = vm->getChunk();
+
+    std::function<void()> compiledFunc = [vmPtr, chunkPtr, funcStart, funcEnd, self]() {
+        auto& code = chunkPtr->Code();
+
+        vmPtr->ip = funcStart;
+
+        while (vmPtr->status == VM::Status::OK && vmPtr->ip < funcEnd && vmPtr->ip < code.size()) {
+            const auto op = static_cast<bytecode::OpCode>(code[vmPtr->ip]);
+            vmPtr->ip++;
+
+            switch (op) {
+                case bytecode::OpCode::PUSH_INT:      vmPtr->pushInt(); break;
+                case bytecode::OpCode::PUSH_FLOAT:    vmPtr->pushFloat(); break;
+                case bytecode::OpCode::PUSH_BOOL:     vmPtr->pushBool(); break;
+                case bytecode::OpCode::PUSH_CHAR:     vmPtr->pushChar(); break;
+                case bytecode::OpCode::PUSH_STRING:   vmPtr->pushString(); break;
+                case bytecode::OpCode::PUSH_NULL:     vmPtr->pushNull(); break;
+                case bytecode::OpCode::PUSH_FUNC:     vmPtr->pushFunc(); break;
+
+                case bytecode::OpCode::LOAD_LOCAL:    vmPtr->loadLocal(); break;
+                case bytecode::OpCode::STORE_LOCAL:   vmPtr->storeLocal(); break;
+                case bytecode::OpCode::LOAD_GLOBAL:   vmPtr->loadGlobal(); break;
+                case bytecode::OpCode::STORE_GLOBAL:  vmPtr->storeGlobal(); break;
+
+                case bytecode::OpCode::ADD:           vmPtr->add(); break;
+                case bytecode::OpCode::SUB:           vmPtr->subtract(); break;
+                case bytecode::OpCode::MUL:           vmPtr->multiply(); break;
+                case bytecode::OpCode::DIV:           vmPtr->divide(); break;
+                case bytecode::OpCode::MOD:           vmPtr->modulo(); break;
+                case bytecode::OpCode::POW:           vmPtr->power(); break;
+                case bytecode::OpCode::NEG:           vmPtr->negate(); break;
+
+                case bytecode::OpCode::AND:           vmPtr->andOp(); break;
+                case bytecode::OpCode::OR:            vmPtr->orOp(); break;
+                case bytecode::OpCode::NOT:           vmPtr->notOp(); break;
+
+                case bytecode::OpCode::CMP_EQ:        vmPtr->cmpEq(); break;
+                case bytecode::OpCode::CMP_NE:        vmPtr->cmpNe(); break;
+                case bytecode::OpCode::CMP_LT:        vmPtr->cmpLt(); break;
+                case bytecode::OpCode::CMP_GT:        vmPtr->cmpGt(); break;
+                case bytecode::OpCode::CMP_LE:        vmPtr->cmpLe(); break;
+                case bytecode::OpCode::CMP_GE:        vmPtr->cmpGe(); break;
+
+                case bytecode::OpCode::JMP:           vmPtr->jump(); break;
+                case bytecode::OpCode::JMP_IF_FALSE:  vmPtr->jumpIfFalse(); break;
+                case bytecode::OpCode::JMP_IF_TRUE:   vmPtr->jumpIfTrue(); break;
+
+                case bytecode::OpCode::CALL: {
+                    const size_t frameDepthBefore = vmPtr->callStack.size();
+                    vmPtr->call();
+
+                    if (vmPtr->status != VM::Status::OK) {
+                        break;
+                    }
+                    if (vmPtr->callStack.size() > frameDepthBefore) {
+                        while (vmPtr->status == VM::Status::OK && vmPtr->callStack.size() > frameDepthBefore) {
+                            if (vmPtr->ip >= code.size()) {
+                                vmPtr->status = VM::Status::RUNTIME_ERROR;
+                                break;
+                            }
+                            const auto innerOp = static_cast<bytecode::OpCode>(code[vmPtr->ip]);
+                            vmPtr->ip++;
+                            vmPtr->executeInstruction(innerOp);
+                        }
+                    }
+                    break;
                 }
-            };
-        } else {
-            auto instrs = std::make_shared<std::vector<std::function<void()>>>(std::move(instructions));
-            compiledFunc = [instrs]() {
-                const auto& vec = *instrs;
-                for (const auto & i : vec) {
-                    i();
-                }
-            };
+
+                case bytecode::OpCode::CALL_BUILTIN:  vmPtr->callBuiltin(); break;
+
+                case bytecode::OpCode::RETURN:        vmPtr->returnOp(); return;
+                case bytecode::OpCode::RETURN_VOID:   vmPtr->returnVoid(); return;
+
+                case bytecode::OpCode::NEW_ARRAY:     vmPtr->newArray(); break;
+                case bytecode::OpCode::ARRAY_GET:     vmPtr->arrayGet(); break;
+                case bytecode::OpCode::ARRAY_SET:     vmPtr->arraySet(); break;
+                case bytecode::OpCode::ARRAY_LEN:     vmPtr->arrayLen(); break;
+
+                case bytecode::OpCode::CAST_INT:
+                case bytecode::OpCode::CAST_FLOAT:
+                case bytecode::OpCode::CAST_BOOL:
+                case bytecode::OpCode::CAST_CHAR:
+                case bytecode::OpCode::CAST_STRING:
+                    vmPtr->executeInstruction(op);
+                    break;
+
+                case bytecode::OpCode::POP:           vmPtr->popOp(); break;
+                case bytecode::OpCode::DUP:           vmPtr->dup(); break;
+
+                case bytecode::OpCode::NOP:           break;
+                case bytecode::OpCode::HALT:          vmPtr->halt(); return;
+
+                default:
+                    vmPtr->status = VM::Status::RUNTIME_ERROR;
+                    return;
+            }
         }
-    }
-    
+    };
+
     return compiledFunc;
 }
 
