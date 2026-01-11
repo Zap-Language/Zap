@@ -141,8 +141,9 @@ TEST(VMTest, Arrays) {
     VM vm;
     auto chunk = std::make_unique<BytecodeChunk>();
     
+    chunk->EmitOpCode(OpCode::PUSH_INT);
+    chunk->EmitInt64(3);
     chunk->EmitOpCode(OpCode::NEW_ARRAY);
-    chunk->EmitUint32(3);
     chunk->EmitByte(static_cast<uint8_t>(ValueType::INT));
     chunk->EmitOpCode(OpCode::HALT);
     
