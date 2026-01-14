@@ -9,15 +9,15 @@
 
 int main(int argc, char **argv) {
     if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <input_file> [-o <output_file>]" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <input_file> [-o <output_file>] [-d]" << std::endl;
+        std::cout << "-d - readable bytecode" << std::endl;
         return 1;
     }
 
-    std::string inputPath = "";
-    std::string outputPath = "output.bc"; // Имя по умолчанию
+    std::string inputPath;
+    std::string outputPath = "output.bc";
     bool debug = false;
 
-    // Парсим аргументы командной строки
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "-o") {
@@ -39,7 +39,6 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // Чтение исходного кода
     std::ifstream ifs(inputPath);
     if (!ifs.is_open()) {
         std::cerr << "Error: Cannot open file " << inputPath << std::endl;
@@ -77,7 +76,6 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // --- Сохранение байт-кода ---
     std::ofstream ofs(outputPath, std::ios::binary);
     if (!ofs.is_open()) {
         std::cerr << "Error: Cannot open output file " << outputPath << std::endl;

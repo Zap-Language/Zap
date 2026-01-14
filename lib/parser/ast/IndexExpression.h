@@ -9,7 +9,7 @@ namespace ast {
         std::string String() override;
         std::string TokenLiteral() override;
 
-        Token::Token token; // '['
+        Token::Token token;
         std::shared_ptr<ExpressionNode> left;
         std::shared_ptr<ExpressionNode> index;
     };

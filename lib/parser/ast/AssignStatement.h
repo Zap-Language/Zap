@@ -16,7 +16,7 @@ namespace ast {
         inline ~AssignStatement() override = default;
 
         Token::Token token;
-        std::shared_ptr<ExpressionNode> target;   // Identifier or IndexExpression
+        std::shared_ptr<ExpressionNode> target;
         std::shared_ptr<ExpressionNode> expression;
     };
 

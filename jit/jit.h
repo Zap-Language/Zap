@@ -27,9 +27,6 @@ private:
     std::unordered_map<uint32_t, size_t> callCounts;
     std::unordered_map<uint32_t, std::function<void()>> compiledFunctions;
     static constexpr size_t JIT_THRESHOLD = 10;
-    
-    bool generateInstruction(bytecode::OpCode op, size_t& codeOffset, 
-                            std::vector<std::function<void()>>& code) const;
 };
 
 }
