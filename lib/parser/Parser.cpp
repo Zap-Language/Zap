@@ -49,6 +49,9 @@ namespace ast {
         _infixParseFunction.emplace(Token::Plus, [this](const std::shared_ptr<ExpressionNode> &rightExpression) {
             return ParseInfixExpression(rightExpression);
         });
+        _infixParseFunction.emplace(Token::Percent, [this](const std::shared_ptr<ExpressionNode> &rightExpression) {
+            return ParseInfixExpression(rightExpression);
+        });
         _infixParseFunction.emplace(Token::Minus, [this](const std::shared_ptr<ExpressionNode> &rightExpression) {
             return ParseInfixExpression(rightExpression);
         });
