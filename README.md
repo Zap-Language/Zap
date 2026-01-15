@@ -63,7 +63,7 @@ RETURN_STATEMENT - 'return' EXPRESSION
 ### Операции
 
 ```
-INFIX_OPERATOR - ('+' | '-' | '/' | '*' | '**' | '%' | '||' | '&&' | '==' | '#')
+INFIX_OPERATOR - ('+' | '-' | '/' | '*' | '**' | '%' | '||' | '&&' | '==' | '#' | '>' | '<')
 PREFIX_OPERATOR - ('!' | '-')
 
 INFIX_EXPRESSION - EXPRESSION INFIX_OPERATOR EXPRESSION
@@ -163,7 +163,7 @@ INFIX_EXPRESSION ::= EXPRESSION INFIX_OPERATOR EXPRESSION
 PREFIX_EXPRESSION::= PREFIX_OPERATOR EXPRESSION
 GROUP_EXPRESSION ::= "(" EXPRESSION ")"
 
-INFIX_OPERATOR   ::= "+" | "-" | "/" | "*" | "**" | "%" | "||" | "&&" | "==" | "#"
+INFIX_OPERATOR   ::= "+" | "-" | "/" | "*" | "**" | "%" | "||" | "&&" | "==" | "#" | ">" | "<"
 PREFIX_OPERATOR  ::= "!" | "-"
 
 BODY             ::= "{" STATEMENT_LIST "}"
