@@ -20,10 +20,13 @@
 #include "parser/ast/DataType.h"
 #include "parser/ast/ArrayLiteral.h"
 #include "parser/ast/IndexExpression.h"
+#include "parser/ast/FieldAccessExpression.h"
+#include "parser/ast/NewExpression.h"
+#include "parser/ast/StructStatement.h"
 #include "parser/ast/ElseStatement.h"
 #include "parser/ast/FloatLiteral.h"
 #include "parser/ast/ForStatement.h"
-#include "parser/ast/funcExpression.h"
+#include "parser/ast/FuncExpression.h"
 #include "parser/ast/FuncStatement.h"
 #include "parser/ast/IfStatement.h"
 #include "parser/ast/InfixExpression.h"
@@ -61,6 +64,7 @@ struct FunctionContext {
     std::vector<LocalVariable> locals;
     uint32_t scopeDepth;
     ValueType returnType;
+    std::string methodStructName;
 };
 
 class Compiler {
@@ -70,6 +74,7 @@ public:
 private:
     std::unique_ptr<BytecodeChunk> _chunk;
     std::unordered_map<std::string, uint32_t> _globals;
+    std::unordered_map<std::string, uint32_t> _functions;
     uint32_t _globalCount;
     std::unique_ptr<FunctionContext> _currentFunction;
     std::stack<LoopContext> _loopStack;
@@ -85,6 +90,9 @@ private:
 
     void CompileFuncStatement(const ast::FuncStatement& stmt);
     void CompileReturnStatement(const ast::ReturnStatement& stmt);
+    void CompileFieldAccessExpression(const ast::FieldAccessExpression& expr);
+    void CompileNewExpression(const ast::NewExpression& expr);
+    void CompileStructStatement(const ast::StructStatement& stmt);
    
     void CompileExpression(const ast::ExpressionNode& expr);
     void CompileIntegerLiteral(const ast::IntLiteral& lit) const;
@@ -103,6 +111,7 @@ private:
    
     uint32_t DeclareLocal(const std::string& name, ValueType type) const;
     int32_t ResolveLocal(const std::string& name) const;
+    int32_t ResolveFunction(const std::string& name) const;
     uint32_t DeclareGlobal(const std::string& name);
     int32_t ResolveGlobal(const std::string& name) const;
 
@@ -112,6 +121,9 @@ private:
    
     size_t EmitJump(OpCode jumpOp) const;
     void PatchJump(size_t jumpPosition) const;
+    std::unordered_map<std::string, uint32_t> _structIndices;
+    std::unordered_map<std::string, std::unordered_map<std::string, uint32_t>> _structFieldIndices;
+    std::unordered_map<std::string, std::unordered_map<std::string, uint32_t>> _structMethodIndices;
     void EmitLoop(size_t loopStart) const;
 
    

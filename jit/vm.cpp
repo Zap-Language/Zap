@@ -3,9 +3,12 @@
 #include "obj_string.h"
 #include "obj_array.h"
 #include "obj_function.h"
+#include "obj_struct.h"
+#include <magic_enum/magic_enum.hpp>
 #include <iostream>
 #include <cmath>
 #include <memory>
+#include <cstdlib>
 
 namespace jit {
 
@@ -131,6 +134,7 @@ void VM::executeInstruction(bytecode::OpCode op) {
         case bytecode::OpCode::JMP_IF_TRUE:    jumpIfTrue(); break;
 
         case bytecode::OpCode::CALL:           call(); break;
+        case bytecode::OpCode::CALL_VALUE:     callValue(); break;
         case bytecode::OpCode::CALL_BUILTIN:   callBuiltin(); break;
         case bytecode::OpCode::RETURN:         returnOp(); break;
         case bytecode::OpCode::RETURN_VOID:    returnVoid(); break;
@@ -139,6 +143,9 @@ void VM::executeInstruction(bytecode::OpCode op) {
         case bytecode::OpCode::ARRAY_GET:      arrayGet(); break;
         case bytecode::OpCode::ARRAY_SET:      arraySet(); break;
         case bytecode::OpCode::ARRAY_LEN:      arrayLen(); break;
+        case bytecode::OpCode::NEW_STRUCT:     newStruct(); break;
+        case bytecode::OpCode::GET_FIELD:      getField(); break;
+        case bytecode::OpCode::SET_FIELD:      setField(); break;
 
         case bytecode::OpCode::POP:            popOp(); break;
         case bytecode::OpCode::DUP:            dup(); break;
@@ -562,7 +569,57 @@ void VM::call() {
             return;
         }
     }
-    
+
+    ip = func.codeOffset;
+
+}
+
+void VM::callValue() {
+
+    uint8_t argCount = chunk->ReadByte(ip);
+    ip += 1;
+
+    if (stack.size() < argCount + 1) {
+        status = Status::RUNTIME_ERROR;
+        return;
+    }
+
+    Value funcValue = pop();
+
+    if (funcValue.type != bytecode::ValueType::FUNCTION || !funcValue.asObj) {
+        status = Status::RUNTIME_ERROR;
+        return;
+    }
+
+    auto* objFunc = dynamic_cast<ObjFunction*>(funcValue.asObj);
+    if (!objFunc) {
+        status = Status::RUNTIME_ERROR;
+        return;
+    }
+
+    uint32_t functionIndex = objFunc->functionIndex;
+    const auto& functions = chunk->Functions();
+
+    if (functionIndex >= functions.size()) {
+        status = Status::RUNTIME_ERROR;
+        return;
+    }
+
+    const auto& func = functions[functionIndex];
+
+    if (argCount != func.paramCount) {
+        status = Status::RUNTIME_ERROR;
+        return;
+    }
+
+    CallFrame frame{};
+    frame.functionIndex = functionIndex;
+    frame.ip = ip;
+    frame.stackStart = stack.size() - argCount;
+    frame.localCount = func.localCount;
+
+    callStack.push(frame);
+
     ip = func.codeOffset;
 }
 
@@ -681,6 +738,108 @@ void VM::arrayLen() {
     } else {
         status = Status::RUNTIME_ERROR;
     }
+}
+
+void VM::newStruct() {
+    uint32_t structId = chunk->ReadUint32(ip);
+    ip += 4;
+    uint8_t argCount = chunk->ReadByte(ip);
+    ip += 1;
+
+    if (structId >= chunk->Structs().size()) {
+        status = Status::RUNTIME_ERROR;
+        return;
+    }
+
+    const auto& structInfo = chunk->Structs()[structId];
+    if (argCount > structInfo.fieldTypes.size()) {
+        status = Status::RUNTIME_ERROR;
+        return;
+    }
+
+    if (stack.size() < argCount) {
+        status = Status::RUNTIME_ERROR;
+        return;
+    }
+
+    auto* obj = gc.allocate<ObjStruct>(structInfo.fieldTypes.size());
+
+    for (int i = static_cast<int>(argCount) - 1; i >= 0; --i) {
+        obj->fields[static_cast<size_t>(i)] = pop();
+    }
+
+    for (size_t i = argCount; i < structInfo.fieldTypes.size(); ++i) {
+        switch (structInfo.fieldTypes[i]) {
+            case bytecode::ValueType::INT:    obj->fields[i] = Value(int64_t(0)); break;
+            case bytecode::ValueType::FLOAT:  obj->fields[i] = Value(0.0); break;
+            case bytecode::ValueType::BOOL:   obj->fields[i] = Value(false); break;
+            case bytecode::ValueType::CHAR:   obj->fields[i] = Value(char(0)); break;
+            case bytecode::ValueType::STRING: obj->fields[i] = Value(gc.allocate<ObjString>("")); break;
+            case bytecode::ValueType::ARRAY:  obj->fields[i] = Value(gc.allocate<ObjArray>(0)); break;
+            case bytecode::ValueType::STRUCT:
+            case bytecode::ValueType::FUNCTION:
+            case bytecode::ValueType::VOID:
+            default:
+                obj->fields[i] = Value();
+                break;
+        }
+    }
+
+    push(Value(obj));
+}
+
+void VM::getField() {
+    uint32_t structId = chunk->ReadUint32(ip);
+    ip += 4;
+    uint8_t fieldIndex = chunk->ReadByte(ip);
+    ip += 1;
+
+    Value objVal = pop();
+    if (objVal.type != bytecode::ValueType::STRUCT || !objVal.asObj) {
+        status = Status::RUNTIME_ERROR;
+        return;
+    }
+
+    if (structId >= chunk->Structs().size()) {
+        status = Status::RUNTIME_ERROR;
+        return;
+    }
+
+    auto* st = dynamic_cast<ObjStruct*>(objVal.asObj);
+    if (!st || fieldIndex >= st->fields.size()) {
+        status = Status::RUNTIME_ERROR;
+        return;
+    }
+
+    push(st->fields[fieldIndex]);
+}
+
+void VM::setField() {
+    uint32_t structId = chunk->ReadUint32(ip);
+    ip += 4;
+    uint8_t fieldIndex = chunk->ReadByte(ip);
+    ip += 1;
+
+    Value value = pop();
+    Value objVal = pop();
+
+    if (objVal.type != bytecode::ValueType::STRUCT || !objVal.asObj) {
+        status = Status::RUNTIME_ERROR;
+        return;
+    }
+
+    if (structId >= chunk->Structs().size()) {
+        status = Status::RUNTIME_ERROR;
+        return;
+    }
+
+    auto* st = dynamic_cast<ObjStruct*>(objVal.asObj);
+    if (!st || fieldIndex >= st->fields.size()) {
+        status = Status::RUNTIME_ERROR;
+        return;
+    }
+
+    st->fields[fieldIndex] = value;
 }
 
 void VM::popOp() {

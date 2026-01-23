@@ -1,5 +1,6 @@
 #include "SymbolTable.h"
 #include "../DataTypeFloat.h"
+#include "../DataTypeStruct.h"
 #include <sstream>
 #include <algorithm>
 #include <unordered_map>
@@ -9,7 +10,8 @@ namespace ast {
         std::ostringstream oss;
         oss << name << " : " << (type ? type->String() : "null");
         oss << " (" << (symbolType == SymbolType::VARIABLE ? "var" :
-                        symbolType == SymbolType::FUNCTION ? "func" : "param");
+                symbolType == SymbolType::FUNCTION ? "func" :
+                symbolType == SymbolType::STRUCT ? "struct" : "param");
         oss << ", depth: " << scopeDepth << ")";
         return oss.str();
     }
@@ -83,6 +85,34 @@ namespace ast {
         allSymbols.emplace_back(name, func->returnType, SymbolType::FUNCTION, GetCurrentDepth(), currentScopeName);
 
         return true;
+    }
+
+    bool SymbolTable::DeclareStruct(const std::string& name, const std::shared_ptr<StructStatement>& strct) {
+        auto currentScope = GetCurrentScope();
+        if (!currentScope) {
+            AddError("No current scope available for struct declaration", name);
+            return false;
+        }
+
+        if (allStructs.contains(name)) {
+            AddError("Struct '" + name + "' already declared", name);
+            return false;
+        }
+
+        allStructs[name] = strct;
+        allSymbols.emplace_back(name, std::make_shared<DataTypeStruct>(name), SymbolType::STRUCT, GetCurrentDepth(), currentScopeName);
+        return true;
+    }
+
+    std::shared_ptr<StructStatement> SymbolTable::LookupStruct(const std::string& name) const {
+        if (allStructs.contains(name)) {
+            return allStructs.at(name);
+        }
+        return nullptr;
+    }
+
+    bool SymbolTable::StructExists(const std::string& name) const {
+        return allStructs.contains(name);
     }
 
     std::shared_ptr<FuncStatement> SymbolTable::LookupFunction(const std::string& name) const {

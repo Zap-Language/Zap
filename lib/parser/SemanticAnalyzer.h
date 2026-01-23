@@ -24,6 +24,10 @@
 #include "ast/StringLiteral.h"
 #include "ast/ArrayLiteral.h"
 #include "ast/IndexExpression.h"
+#include "ast/FieldAccessExpression.h"
+#include "ast/NewExpression.h"
+#include "ast/FuncExpression.h"
+#include "ast/StructStatement.h"
 #include "ast/symbols/SymbolTable.h"
 
 namespace ast {
@@ -51,6 +55,7 @@ namespace ast {
         SymbolTable symbolTable;
         mutable std::vector<SemanticError> errors;
         std::shared_ptr<DataType> currentFunctionReturnType = nullptr;
+        std::string currentStructContext;
 
         bool AnalyzeStatement(const std::shared_ptr<StatementNode>& stmt);
         bool AnalyzeFuncStatement(const std::shared_ptr<FuncStatement>& func);
@@ -61,6 +66,7 @@ namespace ast {
         bool AnalyzeWhileStatement(const std::shared_ptr<WhileStatement>& whileStmt);
         bool AnalyzeForStatement(const std::shared_ptr<ForStatement>& forStmt);
         bool AnalyzeExpressionStatement(const std::shared_ptr<ExpressionStatement>& exprStmt);
+        bool AnalyzeStructStatement(const std::shared_ptr<StructStatement>& structStmt);
 
         std::shared_ptr<DataType> AnalyzeExpression(const std::shared_ptr<ExpressionNode>& expr);
         std::shared_ptr<DataType> AnalyzeCallExpression(const std::shared_ptr<CallExpression>& call);
@@ -79,6 +85,9 @@ namespace ast {
         static std::shared_ptr<DataType> AnalyzeStringLiteral(const std::shared_ptr<StringLiteral>& stringLit);
         std::shared_ptr<DataType> AnalyzeArrayLiteral(const std::shared_ptr<ArrayLiteral>& arrayLit);
         std::shared_ptr<DataType> AnalyzeIndexExpression(const std::shared_ptr<IndexExpression>& indexExpr);
+        std::shared_ptr<DataType> AnalyzeFieldAccessExpression(const std::shared_ptr<FieldAccessExpression>& fieldExpr);
+        std::shared_ptr<DataType> AnalyzeNewExpression(const std::shared_ptr<NewExpression>& newExpr);
+        std::shared_ptr<DataType> AnalyzeFuncExpression(const std::shared_ptr<FuncExpression>& funcExpr);
 
         static bool TypesEqual(const std::shared_ptr<DataType>& a, const std::shared_ptr<DataType>& b);
 

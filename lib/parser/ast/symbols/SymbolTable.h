@@ -9,12 +9,14 @@
 #include "Scope.h"
 #include "../DataType.h"
 #include "../FuncStatement.h"
+#include "../StructStatement.h"
 
 namespace ast {
     enum class SymbolType {
         VARIABLE,
         FUNCTION,
-        PARAMETER
+        PARAMETER,
+        STRUCT
     };
 
     struct Symbol {
@@ -48,6 +50,10 @@ namespace ast {
         std::shared_ptr<FuncStatement> LookupFunction(const std::string& name) const;
         bool FunctionExists(const std::string& name) const;
 
+        bool DeclareStruct(const std::string& name, const std::shared_ptr<StructStatement>& strct);
+        std::shared_ptr<StructStatement> LookupStruct(const std::string& name) const;
+        bool StructExists(const std::string& name) const;
+
         bool DeclareParameter(const std::string &name, const std::shared_ptr<DataType> &type);
 
         void RegisterBuiltinFunctions();
@@ -80,6 +86,7 @@ namespace ast {
         std::vector<SymbolError> errors;
 
         std::unordered_map<std::string, std::shared_ptr<FuncStatement>> allFunctions;
+        std::unordered_map<std::string, std::shared_ptr<StructStatement>> allStructs;
         std::vector<Symbol> allSymbols;
         std::string currentScopeName;
 

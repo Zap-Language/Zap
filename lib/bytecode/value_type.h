@@ -14,6 +14,7 @@ namespace bytecode {
         STRING = 5,
         ARRAY = 6,
         FUNCTION = 7,
+        STRUCT = 8,
     };
 
     inline std::string ValueTypeToString(ValueType type) {
@@ -26,6 +27,7 @@ namespace bytecode {
         case ValueType::STRING:   return "string";
         case ValueType::ARRAY:    return "array";
         case ValueType::FUNCTION: return "function";
+        case ValueType::STRUCT:   return "struct";
         default:                  return "unknown";
         }
     }

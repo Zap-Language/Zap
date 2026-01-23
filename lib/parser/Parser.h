@@ -24,6 +24,9 @@
 #include "ast/StringLiteral.h"
 #include "ast/ArrayLiteral.h"
 #include "ast/WhileStatement.h"
+#include "ast/StructStatement.h"
+#include "ast/FieldAccessExpression.h"
+#include "ast/NewExpression.h"
 
 namespace ast {
     enum Precedence {
@@ -34,6 +37,7 @@ namespace ast {
         LESSGREATER,
         SUM,
         PRODUCT,
+        MEMBER,
         PREFIX,
         CALL,
         INDEX,
@@ -70,13 +74,19 @@ namespace ast {
         std::shared_ptr<CallExpression> ParseCallExpression(std::shared_ptr<ExpressionNode> leftExpression);
         std::shared_ptr<IndexExpression> ParseIndexExpression(std::shared_ptr<ExpressionNode> leftExpression);
         std::shared_ptr<ArrayLiteral> ParseArrayLiteral();
+        std::shared_ptr<ExpressionNode> ParseFieldAccessExpression(std::shared_ptr<ExpressionNode> leftExpression);
+        std::shared_ptr<ExpressionNode> ParseNewExpression();
         std::vector<std::shared_ptr<ExpressionNode>> ParseCallArguments();
 
         std::shared_ptr<DataType> ParseDataType();
 
+        std::shared_ptr<StatementNode> ParseStructStatement();
+
         Precedence PeekPrecedence() const;
 
         void NextToken();
+
+        Token::Token PeekTokenN(size_t n) const;
 
         bool ExpectPeek(Token::TokenType tokenType);
         bool CurrentTokenIs(Token::TokenType tokenType) const;

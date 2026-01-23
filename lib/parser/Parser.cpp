@@ -18,6 +18,10 @@
 #include "ast/WhileStatement.h"
 #include "ast/ArrayLiteral.h"
 #include "ast/IndexExpression.h"
+#include "ast/StructStatement.h"
+#include "ast/FieldAccessExpression.h"
+#include "ast/NewExpression.h"
+#include "ast/DataTypeStruct.h"
 
 namespace ast {
     struct ForStatement;
@@ -36,6 +40,7 @@ namespace ast {
         _prefixParseFunction.emplace(Token::Func, [this] { return ParseFuncExpression(); });
         _prefixParseFunction.emplace(Token::LBracket, [this] { return ParseArrayLiteral(); });
         _prefixParseFunction.emplace(Token::LParen, [this] { return ParseGroupExpression();});
+        _prefixParseFunction.emplace(Token::New, [this] { return ParseNewExpression();});
 
         // Built-in functions
         _prefixParseFunction.emplace(Token::Print, [this] { return ParseIdentifier(nullptr); });
@@ -88,6 +93,9 @@ namespace ast {
         _infixParseFunction.emplace(Token::LBracket, [this](const std::shared_ptr<ExpressionNode> &leftExpression) {
             return ParseIndexExpression(leftExpression);
         });
+        _infixParseFunction.emplace(Token::Dot, [this](const std::shared_ptr<ExpressionNode> &leftExpression) {
+            return ParseFieldAccessExpression(leftExpression);
+        });
 
         _precedence.emplace(Token::Or, OR);
         _precedence.emplace(Token::And, AND);
@@ -100,6 +108,7 @@ namespace ast {
         _precedence.emplace(Token::Percent, SUM);
         _precedence.emplace(Token::Asterisk, PRODUCT);
         _precedence.emplace(Token::Slash, PRODUCT);
+        _precedence.emplace(Token::Dot, MEMBER);
         _precedence.emplace(Token::LParen, CALL);
         _precedence.emplace(Token::LBracket, INDEX);
 
@@ -152,12 +161,36 @@ namespace ast {
                 return ParseForStatement();
             case Token::While:
                 return ParseWhileStatement();
+            case Token::Struct:
+                return ParseStructStatement();
             case Token::LBrace:
                 return ParseBlockStatement();
             default:
                 if (CurrentTokenIs(Token::Ident)) {
-                    if (PeekTokenIs(Token::Assign) || PeekTokenIs(Token::LBracket)) {
+                    if (PeekTokenIs(Token::Assign)) {
                         return ParseAssignStatement();
+                    }
+                    if (PeekTokenIs(Token::LBracket) || PeekTokenIs(Token::Dot)) {
+                        bool isAssign = false;
+                        for (size_t i = 1;; ++i) {
+                            auto tok = PeekTokenN(i);
+                            switch (tok.tokenType) {
+                                case Token::Assign:
+                                    isAssign = true;
+                                    break;
+                                case Token::LParen:
+                                case Token::NewLine:
+                                case Token::Semicolon:
+                                case Token::Eof:
+                                    break;
+                                default:
+                                    continue;
+                            }
+                            break;
+                        }
+                        if (isAssign) {
+                            return ParseAssignStatement();
+                        }
                     }
                 }
                 return ParseExpressionStatement();
@@ -203,6 +236,62 @@ namespace ast {
                 return ast::BOOL;
             case Token::CharType:
                 return ast::GetCharType();
+            case Token::Ident:
+                return std::make_shared<DataTypeStruct>(_currentToken.tokenLiteral);
+            case Token::Func: {
+                auto funcType = std::make_shared<DataTypeFunc>();
+
+                if (!ExpectPeek(Token::LParen)) {
+                    return nullptr;
+                }
+
+                // Move to first parameter or ')' for an empty parameter list.
+                NextToken();
+
+                if (!CurrentTokenIs(Token::RParen)) {
+                    while (true) {
+                        auto paramType = ParseDataType();
+                        if (!paramType) {
+                            return nullptr;
+                        }
+                        funcType->params.push_back(paramType);
+
+                        if (PeekTokenIs(Token::Comma)) {
+                            NextToken(); // consume current param
+                            NextToken(); // move to next param token
+                            continue;
+                        }
+                        break;
+                    }
+
+                    if (!ExpectPeek(Token::RParen)) {
+                        return nullptr;
+                    }
+                }
+
+                // Decide if a return type follows; default to void when the next token
+                // is a delimiter (e.g., '=', ',', ';', ')', '}', or EOF).
+                const bool hasReturnType = !(PeekTokenIs(Token::Assign) ||
+                                              PeekTokenIs(Token::Comma) ||
+                                              PeekTokenIs(Token::Semicolon) ||
+                                              PeekTokenIs(Token::NewLine) ||
+                                              PeekTokenIs(Token::RBrace) ||
+                                              PeekTokenIs(Token::RParen) ||
+                                              PeekTokenIs(Token::Eof));
+
+                if (hasReturnType) {
+                    NextToken();
+                    auto returnType = ParseDataType();
+                    if (!returnType) {
+                        return nullptr;
+                    }
+                    funcType->returnType = returnType;
+                } else {
+                    funcType->returnType = VOID;
+                }
+
+                return funcType;
+            }
             case Token::LBracket: {
                 if (!ExpectPeek(Token::RBracket)) {
                     return nullptr;
@@ -228,6 +317,22 @@ namespace ast {
     void Parser::NextToken() {
         _currentToken = _peekToken;
         _peekToken = _lexer.NextToken();
+    }
+
+    Token::Token Parser::PeekTokenN(size_t n) const {
+        if (n == 0) {
+            return _currentToken;
+        }
+        if (n == 1) {
+            return _peekToken;
+        }
+
+        Lexer copyLexer = _lexer; // copy preserves current lexer state
+        Token::Token tok = _peekToken;
+        for (size_t i = 1; i < n; ++i) {
+            tok = copyLexer.NextToken();
+        }
+        return tok;
     }
 
     bool Parser::ExpectPeek(const Token::TokenType tokenType) {
@@ -383,12 +488,24 @@ namespace ast {
         auto ident = ParseIdentifier(nullptr);
         std::shared_ptr<ExpressionNode> target = ident;
 
-        if (PeekTokenIs(Token::LBracket)) {
-            NextToken();
-            target = ParseIndexExpression(ident);
-            if (!target) {
-                return nullptr;
+        while (true) {
+            if (PeekTokenIs(Token::LBracket)) {
+                NextToken();
+                target = ParseIndexExpression(target);
+                if (!target) {
+                    return nullptr;
+                }
+                continue;
             }
+            if (PeekTokenIs(Token::Dot)) {
+                NextToken();
+                target = ParseFieldAccessExpression(target);
+                if (!target) {
+                    return nullptr;
+                }
+                continue;
+            }
+            break;
         }
 
         if (!ExpectPeek(Token::Assign)) {
@@ -764,5 +881,110 @@ namespace ast {
         }
 
         return expression;
+    }
+
+    std::shared_ptr<ExpressionNode> Parser::ParseFieldAccessExpression(std::shared_ptr<ExpressionNode> leftExpression) {
+        auto expr = std::make_shared<FieldAccessExpression>();
+        expr->object = std::move(leftExpression);
+
+        if (!ExpectPeek(Token::Ident)) {
+            return nullptr;
+        }
+
+        auto ident = std::make_shared<Identifier>();
+        ident->token = _currentToken;
+        expr->field = ident;
+        return expr;
+    }
+
+    std::shared_ptr<ExpressionNode> Parser::ParseNewExpression() {
+        auto expr = std::make_shared<NewExpression>();
+
+        if (!ExpectPeek(Token::Ident)) {
+            return nullptr;
+        }
+        expr->type = std::make_shared<DataTypeStruct>(_currentToken.tokenLiteral);
+
+        if (!ExpectPeek(Token::LParen)) {
+            return nullptr;
+        }
+
+        NextToken();
+        if (!CurrentTokenIs(Token::RParen)) {
+            expr->arguments = ParseCallArguments();
+            if (expr->arguments.empty() && !_errors.empty()) {
+                return nullptr;
+            }
+        }
+
+        if (!CurrentTokenIs(Token::RParen) && !ExpectPeek(Token::RParen)) {
+            return nullptr;
+        }
+
+        return expr;
+    }
+
+    std::shared_ptr<StatementNode> Parser::ParseStructStatement() {
+        auto stmt = std::make_shared<StructStatement>();
+        stmt->token = _currentToken;
+
+        if (!ExpectPeek(Token::Ident)) {
+            return nullptr;
+        }
+        stmt->name = _currentToken.tokenLiteral;
+
+        if (!ExpectPeek(Token::LBrace)) {
+            return nullptr;
+        }
+
+        // Move to first token inside struct body
+        NextToken();
+
+        while (!CurrentTokenIs(Token::RBrace) && !CurrentTokenIs(Token::Eof)) {
+            if (CurrentTokenIs(Token::NewLine)) {
+                NextToken();
+                continue;
+            }
+
+            // Methods inside struct
+            if (CurrentTokenIs(Token::Func)) {
+                auto method = ParseFuncStatement();
+                if (!method) {
+                    return nullptr;
+                }
+                stmt->methods.push_back(method);
+                NextToken();
+                continue;
+            }
+
+            // Field declaration: <ident> : <type>
+            if (!CurrentTokenIs(Token::Ident)) {
+                _errors.emplace_back("unexpected token inside struct: " + _currentToken.tokenLiteral);
+                return nullptr;
+            }
+
+            StructField field;
+            field.token = _currentToken;
+            field.name = _currentToken.tokenLiteral;
+
+            if (!ExpectPeek(Token::Colon)) {
+                return nullptr;
+            }
+
+            NextToken();
+            field.type = ParseDataType();
+            if (!field.type) {
+                return nullptr;
+            }
+
+            stmt->fields.push_back(field);
+
+            if (PeekTokenIs(Token::Semicolon) || PeekTokenIs(Token::NewLine)) {
+                NextToken();
+            }
+            NextToken();
+        }
+
+        return stmt;
     }
 } // ast

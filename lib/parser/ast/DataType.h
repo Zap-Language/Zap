@@ -11,6 +11,7 @@ namespace ast {
         Bool,
         Array,
         Func,
+        Struct,
         Void,
     };
 

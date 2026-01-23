@@ -9,6 +9,7 @@ struct Obj {
         STRING,
         ARRAY,
         FUNCTION,
+        STRUCT,
     };
 
     Type type;

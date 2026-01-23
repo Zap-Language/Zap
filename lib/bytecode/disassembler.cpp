@@ -18,6 +18,15 @@ void Disassembler::Disassemble(const BytecodeChunk& chunk, std::ostream& out) {
     }
 
    
+    if (!chunk.Structs().empty()) {
+        out << "┌─── Structs ───────────────────────────────────────────────\n";
+        for (size_t i = 0; i < chunk.Structs().size(); ++i) {
+            const auto& s = chunk.Structs()[i];
+            out << "│ [" << i << "] " << s.name << " (fields: " << s.fieldTypes.size() << ")\n";
+        }
+        out << "└───────────────────────────────────────────────────────────\n\n";
+    }
+
     if (!chunk.Functions().empty()) {
         out << "┌─── Functions ─────────────────────────────────────────────\n";
         for (size_t i = 0; i < chunk.Functions().size(); ++i) {
@@ -139,6 +148,13 @@ size_t Disassembler::DisassembleInstruction(const BytecodeChunk& chunk,
             break;
         }
 
+        case OpCode::CALL_VALUE: {
+            uint8_t argCount = chunk.ReadByte(offset);
+            out << "<value> args=" << static_cast<int>(argCount);
+            offset += 1;
+            break;
+        }
+
         case OpCode::CALL_BUILTIN: {
             uint8_t builtinId = chunk.ReadByte(offset);
             uint8_t argCount = chunk.ReadByte(offset + 1);
@@ -167,6 +183,31 @@ size_t Disassembler::DisassembleInstruction(const BytecodeChunk& chunk,
             uint32_t size = chunk.ReadUint32(offset + 1);
             out << "type=" << ValueTypeToString(static_cast<ValueType>(elemType))
                 << " size=" << size;
+            offset += 5;
+            break;
+        }
+
+        case OpCode::NEW_STRUCT: {
+            uint32_t structId = chunk.ReadUint32(offset);
+            uint8_t argCount = chunk.ReadByte(offset + 4);
+            out << "struct[" << structId << "]";
+            if (structId < chunk.Structs().size()) {
+                out << " (" << chunk.Structs()[structId].name << ")";
+            }
+            out << " args=" << static_cast<int>(argCount);
+            offset += 5;
+            break;
+        }
+
+        case OpCode::GET_FIELD:
+        case OpCode::SET_FIELD: {
+            uint32_t structId = chunk.ReadUint32(offset);
+            uint8_t fieldIndex = chunk.ReadByte(offset + 4);
+            out << "struct[" << structId << "]";
+            if (structId < chunk.Structs().size()) {
+                out << " (" << chunk.Structs()[structId].name << ")";
+            }
+            out << " field=" << static_cast<int>(fieldIndex);
             offset += 5;
             break;
         }
