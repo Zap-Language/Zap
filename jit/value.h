@@ -38,6 +38,9 @@ struct Value {
                 case Obj::Type::FUNCTION:
                     type = bytecode::ValueType::FUNCTION;
                     break;
+                case Obj::Type::STRUCT:
+                    type = bytecode::ValueType::STRUCT;
+                    break;
             }
         }
     }
@@ -45,7 +48,8 @@ struct Value {
     [[nodiscard]] bool isObj() const {
         return type == bytecode::ValueType::STRING ||
                type == bytecode::ValueType::ARRAY ||
-               type == bytecode::ValueType::FUNCTION;
+             type == bytecode::ValueType::FUNCTION ||
+             type == bytecode::ValueType::STRUCT;
     }
 
     [[nodiscard]] Obj* getObj() const {

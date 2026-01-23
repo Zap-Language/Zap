@@ -23,6 +23,10 @@
 #include "parser/ast/IfStatement.h"
 #include "parser/ast/ReturnStatement.h"
 #include "parser/ast/WhileStatement.h"
+#include "parser/ast/FieldAccessExpression.h"
+#include "parser/ast/NewExpression.h"
+#include "parser/ast/StructStatement.h"
+#include "parser/ast/DataTypeStruct.h"
 
 namespace bytecode {
 
@@ -36,6 +40,10 @@ Compiler::Compiler()
 std::unique_ptr<BytecodeChunk> Compiler::Compile(const ast::Program& program) {
     _chunk = std::make_unique<BytecodeChunk>();
     _globals.clear();
+    _functions.clear();
+    _structIndices.clear();
+    _structFieldIndices.clear();
+    _structMethodIndices.clear();
     _globalCount = 0;
     _scopeDepth = 0;
 
@@ -51,6 +59,9 @@ std::unique_ptr<BytecodeChunk> Compiler::Compile(const ast::Program& program) {
 void Compiler::CompileStatement(const ast::StatementNode& stmt) {
     if (auto* let = dynamic_cast<const ast::LetStatement*>(&stmt)) {
         CompileLetStatement(*let);
+    }
+    else if (auto* structStmt = dynamic_cast<const ast::StructStatement*>(&stmt)) {
+        CompileStructStatement(*structStmt);
     }
     else if (auto* assign = dynamic_cast<const ast::AssignStatement*>(&stmt)) {
         CompileAssignStatement(*assign);
@@ -102,10 +113,114 @@ void Compiler::CompileLetStatement(const ast::LetStatement& stmt) {
     }
 }
 
+void Compiler::CompileStructStatement(const ast::StructStatement& stmt) {
+    if (_structIndices.contains(stmt.name)) {
+        throw CompilerError("Struct already defined: " + stmt.name);
+    }
+
+    bytecode::StructInfo info;
+    info.name = stmt.name;
+
+    auto& fieldMap = _structFieldIndices[stmt.name];
+    for (size_t i = 0; i < stmt.fields.size(); ++i) {
+        const auto& field = stmt.fields[i];
+        info.fieldTypes.push_back(ConvertType(*field.type));
+        fieldMap[field.name] = static_cast<uint32_t>(i);
+    }
+
+    uint32_t structId = _chunk->AddStruct(info);
+    _structIndices[stmt.name] = structId;
+
+    for (const auto& method : stmt.methods) {
+        const std::string methodName = stmt.name + "::" + trim(method->name->String());
+
+        const size_t originalArgCount = method->arguments ? method->arguments->arguments.size() : 0;
+
+        ValueType returnType = ConvertType(*method->returnType);
+        FunctionInfo func;
+        func.name = methodName;
+        func.returnType = returnType;
+        func.paramCount = static_cast<uint8_t>(originalArgCount + 1);
+
+        uint32_t funcIndex = _chunk->AddFunction(func);
+        _functions[methodName] = funcIndex;
+        _structMethodIndices[stmt.name][trim(method->name->String())] = funcIndex;
+
+        size_t skipJump = EmitJump(OpCode::JMP);
+
+        _chunk->GetFunction(funcIndex).codeOffset = static_cast<uint32_t>(_chunk->CurrentOffset());
+
+        _currentFunction = std::make_unique<FunctionContext>();
+        _currentFunction->name = methodName;
+        _currentFunction->funcIndex = funcIndex;
+        _currentFunction->scopeDepth = 0;
+        _currentFunction->returnType = returnType;
+        _currentFunction->methodStructName = stmt.name;
+
+        BeginScope();
+
+        DeclareLocal("self", ValueType::STRUCT);
+        _chunk->GetFunction(funcIndex).paramTypes.push_back(ValueType::STRUCT);
+
+        for (const auto& arg : method->arguments->arguments) {
+            ValueType argType = ConvertType(*arg->type);
+            DeclareLocal(trim(arg->String()), argType);
+            _chunk->GetFunction(funcIndex).paramTypes.push_back(argType);
+        }
+
+        for (const auto& s : method->body->statements) {
+            CompileStatement(*s);
+        }
+
+        bool hasExplicitReturn = false;
+        if (!method->body->statements.empty()) {
+            auto* lastStmt = method->body->statements.back().get();
+            hasExplicitReturn = dynamic_cast<const ast::ReturnStatement*>(lastStmt) != nullptr;
+        }
+
+        if (!hasExplicitReturn) {
+            if (returnType == ValueType::VOID) {
+                _chunk->EmitOpCode(OpCode::RETURN_VOID);
+            } else {
+                _chunk->EmitOpCode(OpCode::PUSH_NULL);
+                _chunk->EmitOpCode(OpCode::RETURN);
+            }
+        }
+
+        _chunk->GetFunction(funcIndex).localCount =
+            static_cast<uint8_t>(_currentFunction->locals.size());
+        _chunk->GetFunction(funcIndex).codeLength =
+            static_cast<uint32_t>(_chunk->CurrentOffset() - _chunk->GetFunction(funcIndex).codeOffset);
+
+        EndScope();
+        _currentFunction.reset();
+
+        PatchJump(skipJump);
+    }
+}
+
 void Compiler::CompileAssignStatement(const ast::AssignStatement& stmt) {
     if (auto* ident = dynamic_cast<ast::Identifier*>(stmt.target.get())) {
-        CompileExpression(*stmt.expression);
         std::string varName = ident->TokenLiteral();
+
+        if (_currentFunction && !_currentFunction->methodStructName.empty()) {
+            auto structIt = _structFieldIndices.find(_currentFunction->methodStructName);
+            auto structIdIt = _structIndices.find(_currentFunction->methodStructName);
+            if (structIt != _structFieldIndices.end() && structIdIt != _structIndices.end()) {
+                auto fieldIt = structIt->second.find(varName);
+                if (fieldIt != structIt->second.end()) {
+                    _chunk->EmitOpCode(OpCode::LOAD_LOCAL);
+                    _chunk->EmitUint32(0);
+                    CompileExpression(*stmt.expression);
+                    _chunk->EmitOpCode(OpCode::SET_FIELD);
+                    _chunk->EmitUint32(structIdIt->second);
+                    _chunk->EmitByte(static_cast<uint8_t>(fieldIt->second));
+                    return;
+                }
+            }
+        }
+
+        CompileExpression(*stmt.expression);
         EmitStore(varName);
         return;
     }
@@ -115,6 +230,20 @@ void Compiler::CompileAssignStatement(const ast::AssignStatement& stmt) {
         CompileExpression(*indexExpr->index);
         CompileExpression(*stmt.expression);
         _chunk->EmitOpCode(OpCode::ARRAY_SET);
+        return;
+    }
+
+    if (auto* fieldExpr = dynamic_cast<ast::FieldAccessExpression*>(stmt.target.get())) {
+        auto itStruct = _structIndices.find(fieldExpr->structName);
+        if (itStruct == _structIndices.end()) {
+            throw CompilerError("Unknown struct: " + fieldExpr->structName);
+        }
+
+        CompileExpression(*fieldExpr->object);
+        CompileExpression(*stmt.expression);
+        _chunk->EmitOpCode(OpCode::SET_FIELD);
+        _chunk->EmitUint32(itStruct->second);
+        _chunk->EmitByte(static_cast<uint8_t>(fieldExpr->fieldIndex));
         return;
     }
 
@@ -276,7 +405,7 @@ void Compiler::CompileFuncStatement(const ast::FuncStatement& stmt) {
 
     uint32_t funcIndex = _chunk->AddFunction(func);
 
-    _globals[funcName] = funcIndex;
+    _functions[funcName] = funcIndex;
 
     size_t skipJump = EmitJump(OpCode::JMP);
 
@@ -371,6 +500,18 @@ void Compiler::CompileExpression(const ast::ExpressionNode& expr) {
     else if (auto* idx = dynamic_cast<const ast::IndexExpression*>(&expr)) {
         CompileIndexExpression(*idx);
     }
+        else if (auto* field = dynamic_cast<const ast::FieldAccessExpression*>(&expr)) {
+            CompileFieldAccessExpression(*field);
+        }
+        else if (auto* newExpr = dynamic_cast<const ast::NewExpression*>(&expr)) {
+            CompileNewExpression(*newExpr);
+        }
+    else if (auto* field = dynamic_cast<const ast::FieldAccessExpression*>(&expr)) {
+        CompileFieldAccessExpression(*field);
+    }
+    else if (auto* newExpr = dynamic_cast<const ast::NewExpression*>(&expr)) {
+        CompileNewExpression(*newExpr);
+    }
     else if (auto* funcExpr = dynamic_cast<const ast::FuncExpression*>(&expr)) {
         CompileFuncExpression(*funcExpr);
     }
@@ -406,7 +547,32 @@ void Compiler::CompileStringLiteral(const ast::StringLiteral& lit) const {
 }
 
 void Compiler::CompileIdentifier(const ast::Identifier& ident) const {
-    EmitLoad(trim(ident.token.tokenLiteral));
+    std::string name = trim(ident.token.tokenLiteral);
+
+    auto itFunc = _functions.find(name);
+    if (itFunc != _functions.end()) {
+        _chunk->EmitOpCode(OpCode::PUSH_FUNC);
+        _chunk->EmitUint32(itFunc->second);
+        return;
+    }
+
+    if (_currentFunction && !_currentFunction->methodStructName.empty()) {
+        auto itStruct = _structIndices.find(_currentFunction->methodStructName);
+        auto itStructFields = _structFieldIndices.find(_currentFunction->methodStructName);
+        if (itStruct != _structIndices.end() && itStructFields != _structFieldIndices.end()) {
+            auto itField = itStructFields->second.find(name);
+            if (itField != itStructFields->second.end()) {
+            _chunk->EmitOpCode(OpCode::LOAD_LOCAL);
+            _chunk->EmitUint32(0);
+            _chunk->EmitOpCode(OpCode::GET_FIELD);
+            _chunk->EmitUint32(itStruct->second);
+            _chunk->EmitByte(static_cast<uint8_t>(itField->second));
+            return;
+            }
+        }
+    }
+
+    EmitLoad(name);
 }
 
 void Compiler::CompilePrefixExpression(const ast::PrefixExpression& expr) {
@@ -492,35 +658,65 @@ void Compiler::CompileInfixExpression(const ast::InfixExpression& expr) {
 }
 
 void Compiler::CompileCallExpression(const ast::CallExpression& expr) {
-    std::string funcName;
+    if (auto* field = dynamic_cast<ast::FieldAccessExpression*>(expr.function.get())) {
+        if (field->isMethod) {
+            auto itStruct = _structIndices.find(field->structName);
+            auto itMethod = _structMethodIndices[field->structName].find(trim(field->field->String()));
+            if (itStruct == _structIndices.end() || itMethod == _structMethodIndices[field->structName].end()) {
+                throw CompilerError("Unknown method: " + field->structName + "::" + trim(field->field->String()));
+            }
+
+            CompileExpression(*field->object);
+
+            for (const auto& arg : expr.arguments) {
+                CompileExpression(*arg);
+            }
+
+            _chunk->EmitOpCode(OpCode::PUSH_FUNC);
+            _chunk->EmitUint32(itMethod->second);
+
+            const auto argCount = static_cast<uint8_t>(expr.arguments.size() + 1);
+            _chunk->EmitOpCode(OpCode::CALL_VALUE);
+            _chunk->EmitByte(argCount);
+            return;
+        }
+    }
+
     if (auto* ident = dynamic_cast<ast::Identifier*>(expr.function.get())) {
-        funcName = trim(ident->String());
-    } else {
-        throw CompilerError("Invalid function call target");
+        std::string funcName = trim(ident->String());
+
+        if (IsBuiltinFunction(funcName)) {
+            for (const auto& arg : expr.arguments) {
+                CompileExpression(*arg);
+            }
+
+            _chunk->EmitOpCode(OpCode::CALL_BUILTIN);
+            _chunk->EmitByte(static_cast<uint8_t>(GetBuiltinFunction(funcName)));
+            _chunk->EmitByte(static_cast<uint8_t>(expr.arguments.size()));
+            return;
+        }
+
+        auto itFunc = _functions.find(funcName);
+        if (itFunc != _functions.end()) {
+            for (const auto& arg : expr.arguments) {
+                CompileExpression(*arg);
+            }
+
+            _chunk->EmitOpCode(OpCode::CALL);
+            _chunk->EmitUint32(itFunc->second);
+            _chunk->EmitByte(static_cast<uint8_t>(expr.arguments.size()));
+            return;
+        }
     }
 
     for (const auto& arg : expr.arguments) {
         CompileExpression(*arg);
     }
 
-    const auto argCount = static_cast<uint8_t>(expr.arguments.size());
+    CompileExpression(*expr.function);
 
-    if (IsBuiltinFunction(funcName)) {
-        BuiltinFunction builtin = GetBuiltinFunction(funcName);
-        _chunk->EmitOpCode(OpCode::CALL_BUILTIN);
-        _chunk->EmitByte(static_cast<uint8_t>(builtin));
-        _chunk->EmitByte(argCount);
-        return;
-    }
-
-    auto it = _globals.find(funcName);
-    if (it == _globals.end()) {
-        throw CompilerError("Unknown function: " + funcName);
-    }
-
-    _chunk->EmitOpCode(OpCode::CALL);
-    _chunk->EmitUint32(it->second);
-    _chunk->EmitByte(argCount);
+    _chunk->EmitOpCode(OpCode::CALL_VALUE);
+    _chunk->EmitByte(static_cast<uint8_t>(expr.arguments.size()));
 }
 
 void Compiler::CompileArrayLiteral(const ast::ArrayLiteral& arr) {
@@ -538,6 +734,49 @@ void Compiler::CompileIndexExpression(const ast::IndexExpression& expr) {
     CompileExpression(*expr.left);
     CompileExpression(*expr.index);
     _chunk->EmitOpCode(OpCode::ARRAY_GET);
+}
+
+void Compiler::CompileFieldAccessExpression(const ast::FieldAccessExpression& expr) {
+    if (expr.isMethod) {
+        auto itMethodStruct = _structMethodIndices.find(expr.structName);
+        if (itMethodStruct == _structMethodIndices.end()) {
+            throw CompilerError("Unknown struct for method access: " + expr.structName);
+        }
+
+        auto itMethod = itMethodStruct->second.find(trim(expr.field->String()));
+        if (itMethod == itMethodStruct->second.end()) {
+            throw CompilerError("Unknown method: " + expr.structName + "::" + trim(expr.field->String()));
+        }
+
+        _chunk->EmitOpCode(OpCode::PUSH_FUNC);
+        _chunk->EmitUint32(itMethod->second);
+        return;
+    }
+
+    auto itStruct = _structIndices.find(expr.structName);
+    if (itStruct == _structIndices.end()) {
+        throw CompilerError("Unknown struct: " + expr.structName);
+    }
+
+    CompileExpression(*expr.object);
+    _chunk->EmitOpCode(OpCode::GET_FIELD);
+    _chunk->EmitUint32(itStruct->second);
+    _chunk->EmitByte(static_cast<uint8_t>(expr.fieldIndex));
+}
+
+void Compiler::CompileNewExpression(const ast::NewExpression& expr) {
+    auto itStruct = _structIndices.find(expr.type->structName);
+    if (itStruct == _structIndices.end()) {
+        throw CompilerError("Unknown struct: " + expr.type->structName);
+    }
+
+    for (const auto& arg : expr.arguments) {
+        CompileExpression(*arg);
+    }
+
+    _chunk->EmitOpCode(OpCode::NEW_STRUCT);
+    _chunk->EmitUint32(itStruct->second);
+    _chunk->EmitByte(static_cast<uint8_t>(expr.arguments.size()));
 }
 
 void Compiler::CompileFuncExpression(const ast::FuncExpression& expr) {
@@ -629,6 +868,14 @@ int32_t Compiler::ResolveLocal(const std::string& name) const {
     return -1;
 }
 
+int32_t Compiler::ResolveFunction(const std::string& name) const {
+    auto it = _functions.find(name);
+    if (it != _functions.end()) {
+        return static_cast<int32_t>(it->second);
+    }
+    return -1;
+}
+
 uint32_t Compiler::DeclareGlobal(const std::string& name) {
     auto it = _globals.find(name);
     if (it != _globals.end()) {
@@ -656,6 +903,22 @@ void Compiler::EmitLoad(const std::string& name) const {
         return;
     }
 
+    if (_currentFunction && !_currentFunction->methodStructName.empty()) {
+        auto itStruct = _structIndices.find(_currentFunction->methodStructName);
+        auto itStructFields = _structFieldIndices.find(_currentFunction->methodStructName);
+        if (itStruct != _structIndices.end() && itStructFields != _structFieldIndices.end()) {
+            auto itField = itStructFields->second.find(name);
+            if (itField != itStructFields->second.end()) {
+                _chunk->EmitOpCode(OpCode::LOAD_LOCAL);
+                _chunk->EmitUint32(0);
+                _chunk->EmitOpCode(OpCode::GET_FIELD);
+                _chunk->EmitUint32(itStruct->second);
+                _chunk->EmitByte(static_cast<uint8_t>(itField->second));
+                return;
+            }
+        }
+    }
+
     int32_t globalIndex = ResolveGlobal(name);
     if (globalIndex >= 0) {
         _chunk->EmitOpCode(OpCode::LOAD_GLOBAL);
@@ -672,6 +935,22 @@ void Compiler::EmitStore(const std::string& name) const {
         _chunk->EmitOpCode(OpCode::STORE_LOCAL);
         _chunk->EmitUint32(static_cast<uint32_t>(localIndex));
         return;
+    }
+
+    if (_currentFunction && !_currentFunction->methodStructName.empty()) {
+        auto itStruct = _structIndices.find(_currentFunction->methodStructName);
+        auto itStructFields = _structFieldIndices.find(_currentFunction->methodStructName);
+        if (itStruct != _structIndices.end() && itStructFields != _structFieldIndices.end()) {
+            auto itField = itStructFields->second.find(name);
+            if (itField != itStructFields->second.end()) {
+                _chunk->EmitOpCode(OpCode::LOAD_LOCAL);
+                _chunk->EmitUint32(0);
+                _chunk->EmitOpCode(OpCode::SET_FIELD);
+                _chunk->EmitUint32(itStruct->second);
+                _chunk->EmitByte(static_cast<uint8_t>(itField->second));
+                return;
+            }
+        }
     }
 
     int32_t globalIndex = ResolveGlobal(name);
@@ -736,6 +1015,7 @@ ValueType Compiler::ConvertType(ast::TypeDataType type) {
         case ast::TypeDataType::Array:  return ValueType::ARRAY;
         case ast::TypeDataType::Void:   return ValueType::VOID;
         case ast::TypeDataType::Func:   return ValueType::FUNCTION;
+        case ast::TypeDataType::Struct: return ValueType::STRUCT;
         default:
             throw CompilerError("Unknown type");
     }

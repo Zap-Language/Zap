@@ -63,6 +63,9 @@ namespace Token {
         StringType,
         BoolType,
 
+        Struct,
+        New,
+
         Len,
         Read,
         Print,

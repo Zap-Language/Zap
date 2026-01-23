@@ -2,6 +2,7 @@
 #include "obj_string.h"
 #include "obj_array.h"
 #include "obj_function.h"
+#include "obj_struct.h"
 #include <vector>
 
 namespace jit {
@@ -59,6 +60,14 @@ void GarbageCollector::markReachable() const {
                     workList.push_back(elem.asObj);
                 }
             }
+        } else if (obj->type == Obj::Type::STRUCT) {
+            auto* st = dynamic_cast<ObjStruct*>(obj);
+            for (auto& field : st->fields) {
+                if (field.isObj() && field.asObj && !field.asObj->marked) {
+                    field.asObj->marked = true;
+                    workList.push_back(field.asObj);
+                }
+            }
         }
     }
 }
@@ -98,6 +107,10 @@ size_t GarbageCollector::calculateObjectSize(Obj* obj) {
         }
         case Obj::Type::FUNCTION: {
             return sizeof(ObjFunction);
+        }
+        case Obj::Type::STRUCT: {
+            auto* st = dynamic_cast<ObjStruct*>(obj);
+            return sizeof(ObjStruct) + st->fields.size() * sizeof(Value);
         }
         default:
             return sizeof(Obj);

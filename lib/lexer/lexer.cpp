@@ -19,7 +19,7 @@ Token::Token Lexer::NextToken() {
                 break;
             }
 
-            token = Token::Token(Token::Illegal, std::string(1, *this->_curChar));
+            token = Token::Token(Token::Colon, std::string(1, *curChar));
             break;
         }
         case '.': {
@@ -205,6 +205,9 @@ Lexer::Lexer(std::string &input)  {
         {"char", Token::CharType},
         {"string", Token::StringType},
         {"bool", Token::BoolType},
+
+        {"struct", Token::Struct},
+        {"new", Token::New},
 
         {"len", Token::Len},
         {"read", Token::Read},

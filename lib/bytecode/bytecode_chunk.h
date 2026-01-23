@@ -31,6 +31,11 @@ struct FunctionInfo {
     std::vector<ValueType> paramTypes; 
 };
 
+struct StructInfo {
+    std::string name;
+    std::vector<ValueType> fieldTypes;
+};
+
 class BytecodeChunk {
 public:
     BytecodeChunk() = default;
@@ -40,6 +45,7 @@ public:
     [[nodiscard]] const std::vector<uint8_t>& Code() const { return _code; }
     [[nodiscard]] const std::vector<std::string>& Strings() const { return _strings; }
     [[nodiscard]] const std::vector<FunctionInfo>& Functions() const { return _functions; }
+    [[nodiscard]] const std::vector<StructInfo>& Structs() const { return _structs; }
 
     [[nodiscard]] size_t CurrentOffset() const { return _code.size(); }
 
@@ -97,6 +103,15 @@ public:
     uint32_t AddFunction(const FunctionInfo& func) {
         _functions.push_back(func);
         return static_cast<uint32_t>(_functions.size() - 1);
+    }
+
+    uint32_t AddStruct(const StructInfo& info) {
+        _structs.push_back(info);
+        return static_cast<uint32_t>(_structs.size() - 1);
+    }
+
+    StructInfo& GetStruct(uint32_t index) {
+        return _structs[index];
     }
 
     FunctionInfo& GetFunction(uint32_t index) {
@@ -172,6 +187,20 @@ public:
                 writeRaw(os, type);
             }
         }
+
+        auto structCount = static_cast<uint32_t>(_structs.size());
+        writeRaw(os, structCount);
+        for (const auto& s : _structs) {
+            auto nameLen = static_cast<uint32_t>(s.name.length());
+            writeRaw(os, nameLen);
+            os.write(s.name.data(), nameLen);
+
+            auto fieldCount = static_cast<uint32_t>(s.fieldTypes.size());
+            writeRaw(os, fieldCount);
+            for (const auto& t : s.fieldTypes) {
+                writeRaw(os, t);
+            }
+        }
     }
 
     static std::unique_ptr<BytecodeChunk> Deserialize(std::istream& is) {
@@ -226,6 +255,26 @@ public:
             chunk->_functions.push_back(std::move(f));
         }
 
+        uint32_t structCount;
+        readRaw(is, structCount);
+        chunk->_structs.reserve(structCount);
+        for (uint32_t i = 0; i < structCount; ++i) {
+            StructInfo s;
+            uint32_t nameLen;
+            readRaw(is, nameLen);
+            s.name.resize(nameLen);
+            is.read(&s.name[0], nameLen);
+
+            uint32_t fieldCount;
+            readRaw(is, fieldCount);
+            s.fieldTypes.resize(fieldCount);
+            for (uint32_t j = 0; j < fieldCount; ++j) {
+                readRaw(is, s.fieldTypes[j]);
+            }
+
+            chunk->_structs.push_back(std::move(s));
+        }
+
         return chunk;
     }
 
@@ -233,6 +282,7 @@ private:
     std::vector<uint8_t> _code;
     std::vector<std::string> _strings;
     std::vector<FunctionInfo> _functions;
+    std::vector<StructInfo> _structs;
 };
 
 

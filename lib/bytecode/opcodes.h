@@ -13,7 +13,7 @@ enum class OpCode : uint8_t {
     PUSH_CHAR,
     PUSH_STRING,
     PUSH_NULL,
-    PUSH_FUNC,         
+    PUSH_FUNC,
 
    
     LOAD_LOCAL,
@@ -21,7 +21,22 @@ enum class OpCode : uint8_t {
     LOAD_GLOBAL,
     STORE_GLOBAL,
 
-   
+    JMP,
+    JMP_IF_FALSE,
+    JMP_IF_TRUE,
+
+    CALL,
+    CALL_VALUE,
+    CALL_BUILTIN,
+
+    RETURN,
+    RETURN_VOID,
+
+    NEW_ARRAY,
+    ARRAY_GET,
+    ARRAY_SET,
+    ARRAY_LEN,
+
     ADD,
     SUB,
     MUL,
@@ -43,24 +58,10 @@ enum class OpCode : uint8_t {
     CMP_LE,
     CMP_GE,
 
-   
-    JMP,
-    JMP_IF_FALSE,
-    JMP_IF_TRUE,
+    NEW_STRUCT,
+    GET_FIELD,
+    SET_FIELD,
 
-   
-    CALL,
-    CALL_BUILTIN,
-    RETURN,
-    RETURN_VOID,
-
-   
-    NEW_ARRAY,
-    ARRAY_GET,
-    ARRAY_SET,
-    ARRAY_LEN,
-
-   
     CAST_INT,
     CAST_FLOAT,
     CAST_BOOL,
@@ -90,9 +91,11 @@ enum class BuiltinFunction : uint8_t {
 inline size_t GetOperandSize(OpCode op) {
     switch (op) {
         case OpCode::PUSH_INT:
-        case OpCode::PUSH_FLOAT:    return 8;
+        case OpCode::PUSH_FLOAT:
+            return 8;
         case OpCode::PUSH_BOOL:
-        case OpCode::PUSH_CHAR:     return 1;
+        case OpCode::PUSH_CHAR:
+            return 1;
         case OpCode::PUSH_STRING:
         case OpCode::PUSH_FUNC:
         case OpCode::LOAD_LOCAL:
@@ -101,11 +104,23 @@ inline size_t GetOperandSize(OpCode op) {
         case OpCode::STORE_GLOBAL:
         case OpCode::JMP:
         case OpCode::JMP_IF_FALSE:
-        case OpCode::JMP_IF_TRUE:   return 4;
-        case OpCode::CALL:          return 5; 
-        case OpCode::CALL_BUILTIN:  return 2; 
-        case OpCode::NEW_ARRAY:     return 5;
-        default:                    return 0;
+        case OpCode::JMP_IF_TRUE:
+            return 4;
+        case OpCode::CALL:
+            return 5;
+        case OpCode::CALL_VALUE:
+            return 1;
+        case OpCode::CALL_BUILTIN:
+            return 2;
+        case OpCode::NEW_ARRAY:
+            return 5;
+        case OpCode::NEW_STRUCT:
+            return 5;
+        case OpCode::GET_FIELD:
+        case OpCode::SET_FIELD:
+            return 5;
+        default:
+            return 0;
     }
 }
 
@@ -122,6 +137,18 @@ inline std::string OpCodeToString(OpCode op) {
         case OpCode::STORE_LOCAL:   return "STORE_LOCAL";
         case OpCode::LOAD_GLOBAL:   return "LOAD_GLOBAL";
         case OpCode::STORE_GLOBAL:  return "STORE_GLOBAL";
+        case OpCode::JMP:           return "JMP";
+        case OpCode::JMP_IF_FALSE:  return "JMP_IF_FALSE";
+        case OpCode::JMP_IF_TRUE:   return "JMP_IF_TRUE";
+        case OpCode::CALL:          return "CALL";
+        case OpCode::CALL_VALUE:    return "CALL_VALUE";
+        case OpCode::CALL_BUILTIN:  return "CALL_BUILTIN";
+        case OpCode::RETURN:        return "RETURN";
+        case OpCode::RETURN_VOID:   return "RETURN_VOID";
+        case OpCode::NEW_ARRAY:     return "NEW_ARRAY";
+        case OpCode::ARRAY_GET:     return "ARRAY_GET";
+        case OpCode::ARRAY_SET:     return "ARRAY_SET";
+        case OpCode::ARRAY_LEN:     return "ARRAY_LEN";
         case OpCode::ADD:           return "ADD";
         case OpCode::SUB:           return "SUB";
         case OpCode::MUL:           return "MUL";
@@ -138,17 +165,9 @@ inline std::string OpCodeToString(OpCode op) {
         case OpCode::CMP_GT:        return "CMP_GT";
         case OpCode::CMP_LE:        return "CMP_LE";
         case OpCode::CMP_GE:        return "CMP_GE";
-        case OpCode::JMP:           return "JMP";
-        case OpCode::JMP_IF_FALSE:  return "JMP_IF_FALSE";
-        case OpCode::JMP_IF_TRUE:   return "JMP_IF_TRUE";
-        case OpCode::CALL:          return "CALL";
-        case OpCode::CALL_BUILTIN:  return "CALL_BUILTIN";
-        case OpCode::RETURN:        return "RETURN";
-        case OpCode::RETURN_VOID:   return "RETURN_VOID";
-        case OpCode::NEW_ARRAY:     return "NEW_ARRAY";
-        case OpCode::ARRAY_GET:     return "ARRAY_GET";
-        case OpCode::ARRAY_SET:     return "ARRAY_SET";
-        case OpCode::ARRAY_LEN:     return "ARRAY_LEN";
+        case OpCode::NEW_STRUCT:    return "NEW_STRUCT";
+        case OpCode::GET_FIELD:     return "GET_FIELD";
+        case OpCode::SET_FIELD:     return "SET_FIELD";
         case OpCode::CAST_INT:      return "CAST_INT";
         case OpCode::CAST_FLOAT:    return "CAST_FLOAT";
         case OpCode::CAST_BOOL:     return "CAST_BOOL";

@@ -4,6 +4,7 @@
 #include "value.h"
 #include "bytecode/bytecode_chunk.h"
 #include "bytecode/opcodes.h"
+#include "obj_struct.h"
 #include <vector>
 #include <stack>
 #include <memory>
@@ -50,6 +51,7 @@ public:
 
     void executeInstruction(bytecode::OpCode op);
     void call();
+    void callValue();
     void callBuiltin();
     void returnOp();
     void returnVoid();
@@ -57,6 +59,9 @@ public:
     void arrayGet();
     void arraySet();
     void arrayLen();
+    void newStruct();
+    void getField();
+    void setField();
     void divide();
     void modulo();
     void power();
@@ -72,6 +77,8 @@ private:
     GarbageCollector gc;
     class JITCompiler* jitCompiler;
     Status status;
+    size_t lastIp = 0;
+    bytecode::OpCode lastOp = bytecode::OpCode::NOP;
 
     void push(const Value& value);
     Value pop();

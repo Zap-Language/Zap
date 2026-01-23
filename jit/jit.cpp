@@ -78,10 +78,14 @@ std::optional<std::function<void()>> JITCompiler::compileFunction(uint32_t funct
             case bytecode::OpCode::JMP_IF_FALSE:return 4;
             case bytecode::OpCode::JMP_IF_TRUE: return 4;
             case bytecode::OpCode::CALL:        return 5;
+            case bytecode::OpCode::CALL_VALUE:  return 1;
             case bytecode::OpCode::CALL_BUILTIN:return 2;
             case bytecode::OpCode::NEW_ARRAY:   return 5;
             case bytecode::OpCode::ARRAY_GET:   return 4;
             case bytecode::OpCode::ARRAY_SET:   return 4;
+            case bytecode::OpCode::NEW_STRUCT:  return 5;
+            case bytecode::OpCode::GET_FIELD:   return 5;
+            case bytecode::OpCode::SET_FIELD:   return 5;
             case bytecode::OpCode::CAST_INT:
             case bytecode::OpCode::CAST_FLOAT:
             case bytecode::OpCode::CAST_BOOL:
@@ -249,6 +253,11 @@ std::optional<std::function<void()>> JITCompiler::compileFunction(uint32_t funct
                 }
 
                 case bytecode::OpCode::CALL_BUILTIN:  vmPtr->callBuiltin(); break;
+                case bytecode::OpCode::CALL_VALUE:    vmPtr->callValue(); break;
+
+                case bytecode::OpCode::NEW_STRUCT:    vmPtr->newStruct(); break;
+                case bytecode::OpCode::GET_FIELD:     vmPtr->getField(); break;
+                case bytecode::OpCode::SET_FIELD:     vmPtr->setField(); break;
 
                 case bytecode::OpCode::RETURN:        vmPtr->returnOp(); return;
                 case bytecode::OpCode::RETURN_VOID:   vmPtr->returnVoid(); return;

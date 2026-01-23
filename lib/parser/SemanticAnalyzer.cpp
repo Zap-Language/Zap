@@ -4,6 +4,8 @@
 #include "ast/DataTypeString.h"
 #include "ast/DataTypeBool.h"
 #include "ast/DataTypeChar.h"
+#include "ast/DataTypeStruct.h"
+#include "ast/DataTypeFunc.h"
 #include "ast/DataTypeVoid.h"
 #include "ast/BlockStatement.h"
 #include <iostream>
@@ -68,6 +70,9 @@ namespace ast {
         if (auto funcStmt = std::dynamic_pointer_cast<FuncStatement>(stmt)) {
             return AnalyzeFuncStatement(funcStmt);
         }
+        if (auto structStmt = std::dynamic_pointer_cast<StructStatement>(stmt)) {
+            return AnalyzeStructStatement(structStmt);
+        }
         if (auto letStmt = std::dynamic_pointer_cast<LetStatement>(stmt)) {
             return AnalyzeLetStatement(letStmt);
         }
@@ -124,6 +129,14 @@ namespace ast {
         auto previousFunctionReturnType = currentFunctionReturnType;
         currentFunctionReturnType = func->returnType;
         bool success = true;
+
+        if (!currentStructContext.empty()) {
+            auto selfType = std::make_shared<DataTypeStruct>(currentStructContext);
+            if (!symbolTable.DeclareParameter("self", selfType)) {
+                AddError("Failed to declare implicit self parameter", func->name->TokenLiteral());
+                success = false;
+            }
+        }
         if (func->arguments) {
             for (const auto &param: func->arguments->arguments) {
                 if (!symbolTable.DeclareParameter(param->TokenLiteral(), param->type)) {
@@ -140,6 +153,29 @@ namespace ast {
         symbolTable.ExitScope();
         symbolTable.SetCurrentScopeName(previousScopeName);
         currentFunctionReturnType = previousFunctionReturnType;
+        return success;
+    }
+
+    bool SemanticAnalyzer::AnalyzeStructStatement(const std::shared_ptr<StructStatement> &structStmt) {
+        if (!structStmt) {
+            AddError("Struct statement is null");
+            return false;
+        }
+
+        if (!symbolTable.DeclareStruct(structStmt->name, structStmt)) {
+            return false;
+        }
+
+        std::string previousScopeName = symbolTable.GetCurrentScopeName();
+        auto previousStructContext = currentStructContext;
+        currentStructContext = structStmt->name;
+        symbolTable.SetCurrentScopeName(structStmt->name);
+        bool success = true;
+        for (const auto &method: structStmt->methods) {
+            success &= AnalyzeFuncStatement(method);
+        }
+        symbolTable.SetCurrentScopeName(previousScopeName);
+        currentStructContext = previousStructContext;
         return success;
     }
 
@@ -236,6 +272,15 @@ namespace ast {
         if (auto indexExpr = std::dynamic_pointer_cast<IndexExpression>(expr)) {
             return AnalyzeIndexExpression(indexExpr);
         }
+        if (auto fieldExpr = std::dynamic_pointer_cast<FieldAccessExpression>(expr)) {
+            return AnalyzeFieldAccessExpression(fieldExpr);
+        }
+        if (auto newExpr = std::dynamic_pointer_cast<NewExpression>(expr)) {
+            return AnalyzeNewExpression(newExpr);
+        }
+        if (auto funcExpr = std::dynamic_pointer_cast<FuncExpression>(expr)) {
+            return AnalyzeFuncExpression(funcExpr);
+        }
         if (auto callExpr = std::dynamic_pointer_cast<CallExpression>(expr)) {
             return AnalyzeCallExpression(callExpr);
         }
@@ -255,53 +300,80 @@ namespace ast {
             return nullptr;
         }
 
-        auto functionId = std::dynamic_pointer_cast<Identifier>(call->function);
-        if (!functionId) {
-            AddError("Function call must use identifier");
-            return nullptr;
-        }
+        if (auto functionId = std::dynamic_pointer_cast<Identifier>(call->function)) {
+            std::string funcName = functionId->TokenLiteral();
 
-        std::string funcName = functionId->TokenLiteral();
+            if (symbolTable.IsBuiltinFunction(funcName)) {
+                return AnalyzeBuiltinCall(funcName, call->arguments);
+            }
 
-        if (symbolTable.IsBuiltinFunction(funcName)) {
-            return AnalyzeBuiltinCall(funcName, call->arguments);
-        }
+            if (auto funcDecl = symbolTable.LookupFunction(funcName)) {
+                size_t expectedArgs = funcDecl->arguments ? funcDecl->arguments->arguments.size() : 0;
+                size_t actualArgs = call->arguments.size();
 
-        auto funcDecl = symbolTable.LookupFunction(funcName);
-        if (!funcDecl) {
-            AddError("Unknown function '" + funcName + "'");
-            return nullptr;
-        }
-
-        functionId->type = funcDecl->returnType;
-        size_t expectedArgs = funcDecl->arguments ? funcDecl->arguments->arguments.size() : 0;
-        size_t actualArgs = call->arguments.size();
-
-        if (expectedArgs != actualArgs) {
-            AddError("Function '" + funcName + "' expects " + std::to_string(expectedArgs) +
-                     " arguments but got " + std::to_string(actualArgs));
-            return nullptr;
-        }
-
-        if (funcDecl->arguments) {
-            for (size_t i = 0; i < expectedArgs; ++i) {
-                auto expectedType = funcDecl->arguments->arguments[i]->type;
-                auto actualType = AnalyzeExpression(call->arguments[i]);
-
-                if (!actualType) {
-                    AddError("Could not determine type of argument " + std::to_string(i + 1));
+                if (expectedArgs != actualArgs) {
+                    AddError("Function '" + funcName + "' expects " + std::to_string(expectedArgs) +
+                             " arguments but got " + std::to_string(actualArgs));
                     return nullptr;
                 }
 
-                if (!TypesCompatible(expectedType, actualType)) {
-                    AddError("Argument " + std::to_string(i + 1) + " type mismatch: expected " +
-                             expectedType->String() + " but got " + actualType->String());
-                    return nullptr;
+                if (funcDecl->arguments) {
+                    for (size_t i = 0; i < expectedArgs; ++i) {
+                        auto expectedType = funcDecl->arguments->arguments[i]->type;
+                        auto actualType = AnalyzeExpression(call->arguments[i]);
+
+                        if (!actualType) {
+                            AddError("Could not determine type of argument " + std::to_string(i + 1));
+                            return nullptr;
+                        }
+
+                        if (!TypesCompatible(expectedType, actualType)) {
+                            AddError("Argument " + std::to_string(i + 1) + " type mismatch: expected " +
+                                     expectedType->String() + " but got " + actualType->String());
+                            return nullptr;
+                        }
+                    }
                 }
+
+                functionId->type = funcDecl->returnType;
+                return funcDecl->returnType;
             }
         }
 
-        return funcDecl->returnType;
+        auto funcType = AnalyzeExpression(call->function);
+        if (!funcType) {
+            return nullptr;
+        }
+
+        auto dataFuncType = std::dynamic_pointer_cast<DataTypeFunc>(funcType);
+        if (!dataFuncType) {
+            AddError("Attempted to call non-function type '" + funcType->String() + "'");
+            return nullptr;
+        }
+
+        if (dataFuncType->params.size() != call->arguments.size()) {
+            AddError("Function expects " + std::to_string(dataFuncType->params.size()) +
+                     " arguments but got " + std::to_string(call->arguments.size()));
+            return nullptr;
+        }
+
+        for (size_t i = 0; i < call->arguments.size(); ++i) {
+            auto expectedType = dataFuncType->params[i];
+            auto actualType = AnalyzeExpression(call->arguments[i]);
+
+            if (!actualType) {
+                AddError("Could not determine type of argument " + std::to_string(i + 1));
+                return nullptr;
+            }
+
+            if (!TypesCompatible(expectedType, actualType)) {
+                AddError("Argument " + std::to_string(i + 1) + " type mismatch: expected " +
+                         expectedType->String() + " but got " + actualType->String());
+                return nullptr;
+            }
+        }
+
+        return dataFuncType->returnType;
     }
 
     std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeInfixExpression(const std::shared_ptr<InfixExpression> &infix) {
@@ -344,8 +416,34 @@ namespace ast {
         auto type = symbolTable.LookupVariable(name);
 
         if (!type) {
-            AddError("Undefined variable '" + name + "'");
-            return nullptr;
+            if (auto funcDecl = symbolTable.LookupFunction(name)) {
+                auto funcType = std::make_shared<DataTypeFunc>();
+                if (funcDecl->arguments) {
+                    for (const auto &arg: funcDecl->arguments->arguments) {
+                        funcType->params.push_back(arg->type);
+                    }
+                }
+                funcType->returnType = funcDecl->returnType;
+                type = funcType;
+            } else if (!currentStructContext.empty()) {
+                auto structDef = symbolTable.LookupStruct(currentStructContext);
+                if (structDef) {
+                    for (const auto& field : structDef->fields) {
+                        if (field.name == name) {
+                            type = field.type;
+                            break;
+                        }
+                    }
+                }
+
+                if (!type) {
+                    AddError("Undefined variable '" + name + "'");
+                    return nullptr;
+                }
+            } else {
+                AddError("Undefined variable '" + name + "'");
+                return nullptr;
+            }
         }
 
         if (!identifier->type) {
@@ -456,6 +554,149 @@ namespace ast {
         return arrayDataType->itemType;
     }
 
+    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeFieldAccessExpression(
+        const std::shared_ptr<FieldAccessExpression> &fieldExpr) {
+        if (!fieldExpr) {
+            return nullptr;
+        }
+
+        auto objType = AnalyzeExpression(fieldExpr->object);
+        if (!objType) {
+            return nullptr;
+        }
+
+        if (objType->Type() != TypeDataType::Struct) {
+            AddError("Field access requires struct type");
+            return nullptr;
+        }
+
+        auto structType = std::dynamic_pointer_cast<DataTypeStruct>(objType);
+        if (!structType) {
+            AddError("Internal error: invalid struct type");
+            return nullptr;
+        }
+
+        auto structDef = symbolTable.LookupStruct(structType->structName);
+        if (!structDef) {
+            AddError("Unknown struct '" + structType->structName + "'");
+            return nullptr;
+        }
+
+        for (size_t i = 0; i < structDef->fields.size(); ++i) {
+            const auto& field = structDef->fields[i];
+            if (field.name == fieldExpr->field->TokenLiteral()) {
+                fieldExpr->field->type = field.type;
+                fieldExpr->structName = structType->structName;
+                fieldExpr->fieldIndex = static_cast<uint32_t>(i);
+                return field.type;
+            }
+        }
+
+        for (const auto& method : structDef->methods) {
+            if (method->name->TokenLiteral() == fieldExpr->field->TokenLiteral()) {
+                auto funcType = std::make_shared<DataTypeFunc>();
+                if (method->arguments) {
+                    for (const auto& arg : method->arguments->arguments) {
+                        funcType->params.push_back(arg->type);
+                    }
+                }
+                funcType->returnType = method->returnType;
+                fieldExpr->field->type = funcType;
+                fieldExpr->structName = structType->structName;
+                fieldExpr->isMethod = true;
+                return funcType;
+            }
+        }
+
+        AddError("Struct '" + structType->structName + "' has no field '" + fieldExpr->field->TokenLiteral() + "'");
+        return nullptr;
+    }
+
+    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeNewExpression(const std::shared_ptr<NewExpression> &newExpr) {
+        if (!newExpr || !newExpr->type) {
+            return nullptr;
+        }
+
+        auto structDef = symbolTable.LookupStruct(newExpr->type->structName);
+        if (!structDef) {
+            AddError("Unknown struct '" + newExpr->type->structName + "'");
+            return nullptr;
+        }
+
+        newExpr->type->definition = structDef;
+
+        if (newExpr->arguments.size() > structDef->fields.size()) {
+            AddError("Too many arguments for struct '" + structDef->name + "'");
+            return nullptr;
+        }
+
+        for (size_t i = 0; i < newExpr->arguments.size(); ++i) {
+            auto argType = AnalyzeExpression(newExpr->arguments[i]);
+            if (!argType) {
+                return nullptr;
+            }
+
+            auto expected = structDef->fields[i].type;
+            if (!TypesCompatible(expected, argType)) {
+                AddError("Field '" + structDef->fields[i].name + "' expects " + expected->String() +
+                         " but got " + argType->String());
+                return nullptr;
+            }
+        }
+
+        return newExpr->type;
+    }
+
+    std::shared_ptr<DataType> SemanticAnalyzer::AnalyzeFuncExpression(const std::shared_ptr<FuncExpression> &funcExpr) {
+        if (!funcExpr) {
+            return nullptr;
+        }
+
+        auto funcType = std::make_shared<DataTypeFunc>();
+
+        auto previousStructContext = currentStructContext;
+        currentStructContext.clear();
+
+        if (funcExpr->arguments) {
+            for (const auto &param: funcExpr->arguments->arguments) {
+                funcType->params.push_back(param->type);
+            }
+        }
+
+        funcType->returnType = funcExpr->returnType ? funcExpr->returnType : VOID;
+
+        auto previousReturn = currentFunctionReturnType;
+        currentFunctionReturnType = funcType->returnType;
+
+        symbolTable.EnterScope();
+        bool success = true;
+
+        if (funcExpr->arguments) {
+            for (const auto &param: funcExpr->arguments->arguments) {
+                if (!symbolTable.DeclareParameter(param->TokenLiteral(), param->type)) {
+                    AddError("Failed to declare parameter '" + param->TokenLiteral() + "'");
+                    success = false;
+                }
+            }
+        }
+
+        if (funcExpr->body) {
+            for (const auto &stmt: funcExpr->body->statements) {
+                success &= AnalyzeStatement(stmt);
+            }
+        }
+
+        symbolTable.ExitScope();
+        currentFunctionReturnType = previousReturn;
+        currentStructContext = previousStructContext;
+
+        if (!success) {
+            return nullptr;
+        }
+
+        return funcType;
+    }
+
     bool SemanticAnalyzer::TypesEqual(const std::shared_ptr<DataType> &a, const std::shared_ptr<DataType> &b) {
         if (!a || !b) return false;
         if (a->Type() != b->Type()) return false;
@@ -465,6 +706,28 @@ namespace ast {
             const auto *arrB = dynamic_cast<DataTypeArray *>(b.get());
             if (!arrA || !arrB) return false;
             return TypesEqual(arrA->itemType, arrB->itemType);
+        }
+
+        if (a->Type() == TypeDataType::Struct) {
+            const auto *sa = dynamic_cast<DataTypeStruct *>(a.get());
+            const auto *sb = dynamic_cast<DataTypeStruct *>(b.get());
+            if (!sa || !sb) return false;
+            return sa->structName == sb->structName;
+        }
+
+        if (a->Type() == TypeDataType::Func) {
+            const auto *fa = dynamic_cast<DataTypeFunc *>(a.get());
+            const auto *fb = dynamic_cast<DataTypeFunc *>(b.get());
+            if (!fa || !fb) return false;
+            if (fa->params.size() != fb->params.size()) return false;
+
+            for (size_t i = 0; i < fa->params.size(); ++i) {
+                if (!TypesEqual(fa->params[i], fb->params[i])) {
+                    return false;
+                }
+            }
+
+            return TypesEqual(fa->returnType, fb->returnType);
         }
 
         return true;
@@ -787,6 +1050,18 @@ namespace ast {
 
         if (auto ident = std::dynamic_pointer_cast<Identifier>(assign->target)) {
             auto varType = symbolTable.LookupVariable(ident->TokenLiteral());
+
+            if (!varType && !currentStructContext.empty()) {
+                if (auto structDef = symbolTable.LookupStruct(currentStructContext)) {
+                    for (const auto &field : structDef->fields) {
+                        if (field.name == ident->TokenLiteral()) {
+                            varType = field.type;
+                            break;
+                        }
+                    }
+                }
+            }
+
             if (!varType) {
                 AddError("Cannot assign to undeclared variable '" + ident->TokenLiteral() + "'");
                 return false;
@@ -826,6 +1101,21 @@ namespace ast {
             if (!TypesCompatible(arrayDataType->itemType, exprType)) {
                 AddError("Type mismatch in array element assignment: expected " +
                          arrayDataType->itemType->String() + " but got " + exprType->String());
+                return false;
+            }
+
+            return true;
+        }
+
+        if (auto fieldExpr = std::dynamic_pointer_cast<FieldAccessExpression>(assign->target)) {
+            auto fieldType = AnalyzeFieldAccessExpression(fieldExpr);
+            if (!fieldType) {
+                return false;
+            }
+
+            if (!TypesCompatible(fieldType, exprType)) {
+                AddError("Type mismatch in struct field assignment: expected " + fieldType->String() +
+                         " but got " + exprType->String());
                 return false;
             }
 
